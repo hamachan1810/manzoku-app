@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>支出満足度管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ===== リセット・基本 ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --coral:#FF6B6B;--mint:#4ECDC4;--yellow:#FFE66D;--navy:#2C3E50;
+  --bg:#FFFFFF;--surface:#F8F9FA;--border:#E9ECEF;
+  --text:#2C3E50;--text-sub:#6C757D;
+  --danger:#DC3545;--success:#28A745;--warning:#FFC107;
+  --shadow:0 2px 12px rgba(0,0,0,.08);
+  --radius:12px;--radius-sm:8px;
+}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--surface);color:var(--text);min-height:100vh;font-size:14px}
+button{font-family:inherit;cursor:pointer;border:none;outline:none}
+input,textarea,select{font-family:inherit;outline:none}
+a{color:inherit;text-decoration:none}
+
+/* ===== パスワード画面 ===== */
+#auth-screen{position:fixed;inset:0;background:linear-gradient(135deg,var(--coral),var(--mint));display:flex;align-items:center;justify-content:center;z-index:9999}
+.auth-card{background:#fff;border-radius:20px;padding:40px 32px;width:min(360px,90vw);text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.auth-card h1{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.auth-card p{color:var(--text-sub);margin-bottom:24px;font-size:13px}
+.auth-card input{width:100%;border:2px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;font-size:16px;margin-bottom:16px;transition:border-color .2s}
+.auth-card input:focus{border-color:var(--coral)}
+.auth-card .btn-auth{width:100%;background:var(--coral);color:#fff;border-radius:var(--radius-sm);padding:14px;font-size:16px;font-weight:700;transition:opacity .2s}
+.auth-card .btn-auth:hover{opacity:.85}
+.auth-error{color:var(--danger);font-size:12px;margin-top:8px}
+
+/* ===== アプリ本体 ===== */
+#app{display:none;flex-direction:column;min-height:100vh}
+#app.visible{display:flex}
+
+/* ===== ヘッダー ===== */
+.app-header{background:#fff;border-bottom:1px solid var(--border);padding:0 16px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.header-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
+.app-title{font-size:18px;font-weight:700;color:var(--coral)}
+.gas-status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--border)}
+.status-dot.ok{background:var(--success)}
+.status-dot.err{background:var(--danger)}
+.status-dot.loading{background:var(--warning);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ===== タブナビ ===== */
+.tab-nav{background:#fff;border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:99}
+.tab-nav-inner{max-width:960px;margin:0 auto;display:flex}
+.tab-btn{flex:1;padding:12px 4px;font-size:12px;font-weight:500;color:var(--text-sub);background:transparent;border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap}
+.tab-btn.active{color:var(--coral);border-bottom-color:var(--coral);font-weight:700}
+.tab-btn:hover:not(.active){color:var(--text)}
+@media(min-width:480px){.tab-btn{font-size:14px;padding:14px 8px}}
+
+/* ===== メインコンテンツ ===== */
+.tab-content{display:none;max-width:960px;margin:0 auto;padding:16px;width:100%}
+.tab-content.active{display:block}
+.main-wrap{flex:1}
+
+/* ===== カード ===== */
+.card{background:#fff;border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px}
+.card-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card-title .icon{font-size:18px}
+
+/* ===== バナー ===== */
+.banner{border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
+.banner.warning{background:#FFF3CD;color:#856404;border:1px solid #FFECB5}
+.banner.danger{background:#F8D7DA;color:#842029;border:1px solid #F5C2C7}
+.banner.info{background:#D1ECF1;color:#0C5460;border:1px solid #BEE5EB}
+.banner.success{background:#D4EDDA;color:#155724;border:1px solid #C3E6CB}
+.banner.dummy{background:linear-gradient(135deg,#FFF3CD,#D1ECF1);color:var(--navy);border:1px solid var(--yellow)}
+
+/* ===== プログレスバー ===== */
+.progress-wrap{margin-bottom:12px}
+.progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text-sub);margin-bottom:4px}
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;transition:width .5s ease;background:var(--coral)}
+.progress-fill.mint{background:var(--mint)}
+
+/* ===== ホーム ===== */
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+@media(min-width:600px){.summary-grid{grid-template-columns:repeat(4,1fr)}}
+.summary-item{background:var(--surface);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.summary-value{font-size:22px;font-weight:700;color:var(--coral)}
+.summary-label{font-size:11px;color:var(--text-sub);margin-top:2px}
+.best-worst-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bw-card{border-radius:var(--radius-sm);padding:12px}
+.bw-card.best{background:#E8F8F5;border:1px solid var(--mint)}
+.bw-card.worst{background:#FFF0F0;border:1px solid var(--coral)}
+.bw-card-title{font-size:11px;font-weight:700;margin-bottom:6px}
+.bw-card.best .bw-card-title{color:var(--mint)}
+.bw-card.worst .bw-card-title{color:var(--coral)}
+.bw-item{font-size:12px;color:var(--text);padding:3px 0;border-bottom:1px solid rgba(0,0,0,.05)}
+.bw-item:last-child{border-bottom:none}
+.bw-score{font-weight:700;float:right}
+.alert-card{background:#FFF0F0;border:1px solid var(--coral);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:8px;font-size:13px;color:#842029;display:flex;align-items:center;gap:8px}
+
+/* ===== ダミーデータバナー ===== */
+#dummy-banner{display:none}
+#dummy-banner.visible{display:flex}
+.btn-use-real{margin-left:auto;background:var(--navy);color:#fff;border-radius:6px;padding:6px 12px;font-size:12px;white-space:nowrap}
+
+/* ===== 表彰式タブ ===== */
+/* CSVインポートエリア（PC専用） */
+.csv-import-area{display:none}
+@media(min-width:768px){.csv-import-area{display:block}}
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;transition:all .2s;cursor:pointer;background:var(--surface)}
+.drop-zone.drag-over{border-color:var(--coral);background:#FFF5F5}
+.drop-zone-icon{font-size:40px;margin-bottom:8px}
+.drop-zone p{color:var(--text-sub);font-size:13px;margin-bottom:12px}
+.drop-zone-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.btn-upload{background:var(--coral);color:#fff;border-radius:var(--radius-sm);padding:10px 20px;font-size:14px;font-weight:500}
+.btn-dummy{background:var(--surface);color:var(--text-sub);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 20px;font-size:14px}
+.btn-dummy:hover,.btn-upload:hover{opacity:.85}
+.import-progress{margin-top:12px;display:none}
+
+/* 固定費/変動費タブ */
+.expense-type-tabs{display:flex;background:var(--surface);border-radius:var(--radius-sm);padding:4px;margin-bottom:16px}
+.expense-type-tab{flex:1;padding:8px;text-align:center;border-radius:6px;font-size:13px;font-weight:500;color:var(--text-sub);transition:all .2s;position:relative}
+.expense-type-tab.active{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.badge{display:inline-block;background:var(--coral);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:4px;vertical-align:middle}
+
+/* ステップ表示 */
+.step-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.step-badge{background:var(--coral);color:#fff;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+.step-badge.step2{background:var(--mint)}
+.step-badge.step3{background:var(--text-sub)}
+.step-desc{font-size:12px;color:var(--text-sub);flex:1}
+.btn-skip{font-size:12px;color:var(--text-sub);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 10px}
+
+/* 支出カード */
+.expense-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;transition:all .2s}
+.expense-card.rated{background:#F0FDF4;border-color:var(--mint)}
+.expense-card.best-rank{border-left:4px solid var(--mint)}
+.expense-card.worst-rank{border-left:4px solid var(--coral)}
+.expense-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.expense-info{flex:1}
+.expense-shop{font-weight:700;font-size:14px;color:var(--navy)}
+.expense-meta{font-size:11px;color:var(--text-sub);margin-top:2px}
+.expense-amount{font-size:18px;font-weight:700;color:var(--coral);white-space:nowrap;margin-left:8px}
+.expense-rated-badge{font-size:11px;color:var(--mint);font-weight:700;margin-left:4px}
+.rating-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:8px 0}
+@media(min-width:768px){.rating-btns{grid-template-columns:repeat(10,1fr)}}
+.rating-btn{min-height:48px;border-radius:6px;font-size:14px;font-weight:700;background:var(--surface);border:1px solid var(--border);color:var(--text);transition:all .15s}
+.rating-btn:hover{background:var(--yellow)}
+.rating-btn.selected{color:#fff;border-color:transparent}
+.rating-btn[data-score="1"].selected,.rating-btn[data-score="2"].selected,.rating-btn[data-score="3"].selected{background:var(--coral)}
+.rating-btn[data-score="4"].selected,.rating-btn[data-score="5"].selected,.rating-btn[data-score="6"].selected{background:var(--warning)}
+.rating-btn[data-score="7"].selected,.rating-btn[data-score="8"].selected{background:var(--mint)}
+.rating-btn[data-score="9"].selected,.rating-btn[data-score="10"].selected{background:var(--navy)}
+.memo-input{width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;resize:none;margin-top:6px;transition:border-color .2s}
+.memo-input:focus{border-color:var(--coral)}
+.expense-card-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.btn-edit-rating{font-size:12px;color:var(--text-sub);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 10px}
+.rank-selector{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.rank-btn{border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;background:var(--surface);border:1px solid var(--border);color:var(--text-sub)}
+.rank-btn.best{border-color:var(--mint);color:var(--mint)}
+.rank-btn.worst{border-color:var(--coral);color:var(--coral)}
+.rank-btn.active-best{background:var(--mint);color:#fff;border-color:var(--mint)}
+.rank-btn.active-worst{background:var(--coral);color:#fff;border-color:var(--coral)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-sub)}
+.empty-state .empty-icon{font-size:56px;margin-bottom:12px}
+.empty-state p{font-size:14px}
+
+/* ===== 分析タブ ===== */
+.period-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.period-btn{border-radius:20px;padding:6px 14px;font-size:12px;font-weight:500;background:var(--surface);border:1px solid var(--border);color:var(--text-sub)}
+.period-btn.active{background:var(--coral);color:#fff;border-color:var(--coral)}
+.analysis-grid{display:grid;gap:16px}
+@media(min-width:768px){.analysis-grid{grid-template-columns:1fr 1fr}}
+.keyword-list{display:flex;flex-wrap:wrap;gap:6px}
+.keyword-chip{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--text)}
+.keyword-chip .kw-count{font-weight:700;color:var(--coral);margin-left:4px}
+.insight-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.insight-item:last-child{border-bottom:none}
+.insight-rank{font-size:18px;font-weight:700;color:var(--text-sub);min-width:28px;text-align:center}
+.insight-info{flex:1}
+.insight-shop{font-weight:600;font-size:13px}
+.insight-meta{font-size:11px;color:var(--text-sub);margin-top:2px}
+.insight-score{font-weight:700;color:var(--coral);white-space:nowrap}
+.archive-toggle{font-size:13px;color:var(--mint);background:none;padding:8px 0;display:block;width:100%}
+
+/* ===== 予算タブ ===== */
+.budget-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px}
+.budget-form input,.budget-form select{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;flex:1;min-width:120px}
+.budget-form input:focus,.budget-form select:focus{border-color:var(--coral)}
+.btn-add-budget{background:var(--coral);color:#fff;border-radius:var(--radius-sm);padding:10px 16px;font-size:14px;font-weight:700;white-space:nowrap;min-height:44px}
+.budget-table{width:100%;border-collapse:collapse;font-size:13px}
+.budget-table th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);color:var(--text-sub);font-weight:600;font-size:12px}
+.budget-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.budget-table tr:last-child td{border-bottom:none}
+.budget-table tr.over td{background:#FFF5F5;color:var(--danger)}
+.over-badge{background:var(--danger);color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;margin-left:4px}
+.btn-del-budget{background:none;color:var(--text-sub);font-size:16px;padding:4px;border-radius:4px}
+.btn-del-budget:hover{color:var(--danger)}
+.achieve-bar{height:6px;background:var(--border);border-radius:3px;margin-top:3px;overflow:hidden;min-width:60px}
+.achieve-fill{height:100%;border-radius:3px;background:var(--mint);transition:width .5s}
+.achieve-fill.over{background:var(--danger)}
+
+/* ===== GAS設定エリア ===== */
+.settings-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+.settings-form input{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;flex:1;min-width:200px}
+.settings-form input:focus{border-color:var(--coral)}
+.btn-save-url{background:var(--navy);color:#fff;border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:700;white-space:nowrap}
+.btn-init-gas{background:var(--mint);color:#fff;border-radius:var(--radius-sm);padding:10px 16px;font-size:13px;font-weight:700}
+.alert-days-form{display:flex;align-items:center;gap:8px;font-size:13px}
+.alert-days-form input{width:70px;border:1px solid var(--border);border-radius:6px;padding:6px 10px;text-align:center}
+
+/* ===== モーダル ===== */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-backdrop.hidden{display:none}
+.modal{background:#fff;border-radius:var(--radius);padding:24px;width:min(480px,100%);max-height:80vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:12px}
+.modal p{font-size:14px;color:var(--text-sub);margin-bottom:16px;line-height:1.6}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.btn-modal-ok{background:var(--coral);color:#fff;border-radius:var(--radius-sm);padding:10px 20px;font-size:14px;font-weight:700}
+.btn-modal-cancel{background:var(--surface);color:var(--text-sub);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 20px;font-size:14px}
+.edit-reason-group{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.edit-reason-label{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;transition:all .2s}
+.edit-reason-label:has(input:checked){border-color:var(--coral);background:#FFF5F5}
+.edit-reason-label input{accent-color:var(--coral)}
+
+/* ===== スピナー ===== */
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--coral);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+.spinner.lg{width:36px;height:36px;border-width:3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.loading-overlay.hidden{display:none}
+.loading-overlay p{font-size:14px;color:var(--text-sub)}
+
+/* ===== フッター ===== */
+.app-footer{background:#fff;border-top:1px solid var(--border);padding:12px 16px;text-align:center;font-size:11px;color:var(--text-sub)}
+
+/* ===== ユーティリティ ===== */
+.hidden{display:none!important}
+.mt-8{margin-top:8px}
+.mt-12{margin-top:12px}
+.mt-16{margin-top:16px}
+.text-coral{color:var(--coral)}
+.text-mint{color:var(--mint)}
+.text-sub{color:var(--text-sub)}
+.fw-bold{font-weight:700}
+.text-right{text-align:right}
+.flex{display:flex}
+.items-center{align-items:center}
+.gap-8{gap:8px}
+.chart-wrap{position:relative;height:220px}
+@media(min-width:768px){.chart-wrap{height:260px}}
+</style>
+</head>
+<body>
+
+<!-- パスワード認証画面 -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <h1>💴 支出満足度管理</h1>
+    <p>パスワードを入力してください</p>
+    <input type="password" id="pw-input" placeholder="パスワード" autocomplete="current-password">
+    <button class="btn-auth" id="btn-login">ログイン</button>
+    <div class="auth-error hidden" id="auth-error">パスワードが違います</div>
+  </div>
+</div>
+
+<!-- ローディングオーバーレイ -->
+<div class="loading-overlay hidden" id="loading-overlay">
+  <div class="spinner lg"></div>
+  <p id="loading-msg">データを読み込み中...</p>
+</div>
+
+<!-- アプリ本体 -->
+<div id="app">
+  <header class="app-header">
+    <div class="header-inner">
+      <span class="app-title">💴 満足度管理</span>
+      <div class="gas-status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-label">未接続</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tab-nav">
+    <div class="tab-nav-inner">
+      <button class="tab-btn active" data-tab="home">🏠 ホーム</button>
+      <button class="tab-btn" data-tab="award">🏆 表彰式</button>
+      <button class="tab-btn" data-tab="analysis">📊 分析</button>
+      <button class="tab-btn" data-tab="budget">💰 予算</button>
+    </div>
+  </nav>
+
+  <div class="main-wrap">
+
+    <!-- ===== タブ1：ホーム ===== -->
+    <div class="tab-content active" id="tab-home">
+      <!-- ダミーデータバナー -->
+      <div class="banner dummy" id="dummy-banner">
+        <span>📌 ダミーデータを使用中です</span>
+        <button class="btn-use-real" id="btn-use-real">本番データを使う</button>
+      </div>
+
+      <!-- 月末アラートバナー -->
+      <div class="banner warning hidden" id="month-end-banner">
+        <span>⚠️</span>
+        <span id="month-end-msg"></span>
+      </div>
+
+      <!-- 評価進捗 -->
+      <div class="card">
+        <div class="card-title"><span class="icon">📋</span>今月の評価進捗</div>
+        <div class="progress-wrap">
+          <div class="progress-label"><span>STEP1（必須）ベスト1・ワースト1</span><span id="step1-pct">0%</span></div>
+          <div class="progress-bar"><div class="progress-fill" id="step1-bar" style="width:0%"></div></div>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label"><span>STEP2（推奨）ベスト〜5・ワースト〜5</span><span id="step2-pct">0%</span></div>
+          <div class="progress-bar"><div class="progress-fill mint" id="step2-bar" style="width:0%"></div></div>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label"><span>STEP3（任意）残り全支出</span><span id="step3-pct">0%</span></div>
+          <div class="progress-bar"><div class="progress-fill" id="step3-bar" style="width:0%;background:var(--text-sub)"></div></div>
+        </div>
+      </div>
+
+      <!-- 今月サマリー -->
+      <div class="card">
+        <div class="card-title"><span class="icon">💹</span>今月の総支出</div>
+        <div class="summary-grid" id="home-summary-grid">
+          <div class="summary-item"><div class="summary-value" id="home-total">¥0</div><div class="summary-label">総支出</div></div>
+          <div class="summary-item"><div class="summary-value" id="home-count">0件</div><div class="summary-label">支出件数</div></div>
+          <div class="summary-item"><div class="summary-value" id="home-rated">0件</div><div class="summary-label">評価済</div></div>
+          <div class="summary-item"><div class="summary-value" id="home-avg-score">-</div><div class="summary-label">平均満足度</div></div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart-home-pie"></canvas></div>
+      </div>
+
+      <!-- 先月のベスト・ワースト -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🏅</span>先月のベスト・ワースト</div>
+        <div class="best-worst-grid">
+          <div class="bw-card best">
+            <div class="bw-card-title">👑 先月のベスト</div>
+            <div id="last-best-list"><div class="text-sub" style="font-size:12px">データなし</div></div>
+          </div>
+          <div class="bw-card worst">
+            <div class="bw-card-title">😢 先月のワースト</div>
+            <div id="last-worst-list"><div class="text-sub" style="font-size:12px">データなし</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 予算オーバーアラート -->
+      <div class="card" id="home-alert-card">
+        <div class="card-title"><span class="icon">🚨</span>予算オーバーカテゴリ</div>
+        <div id="home-alerts"><div class="text-sub" style="font-size:13px">予算オーバーなし</div></div>
+      </div>
+
+      <!-- GAS設定 -->
+      <div class="card">
+        <div class="card-title"><span class="icon">⚙️</span>GAS接続設定</div>
+        <div class="settings-form">
+          <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec">
+          <button class="btn-save-url" id="btn-save-gas-url">保存</button>
+          <button class="btn-init-gas" id="btn-init-gas">初期化</button>
+        </div>
+        <div class="alert-days-form">
+          <span>月末</span>
+          <input type="number" id="alert-days-input" value="5" min="1" max="20">
+          <span>日前にアラートを表示</span>
+          <button class="btn-save-url" style="padding:6px 10px;font-size:12px" id="btn-save-alert-days">保存</button>
+        </div>
+        <div id="storage-status" class="mt-8" style="font-size:12px;color:var(--text-sub)">ストレージ: GASに接続されていません</div>
+      </div>
+    </div>
+
+    <!-- ===== タブ2：表彰式 ===== -->
+    <div class="tab-content" id="tab-award">
+      <!-- CSVインポート（PC専用） -->
+      <div class="card csv-import-area">
+        <div class="card-title"><span class="icon">📂</span>CSVインポート（PC専用）</div>
+        <div class="drop-zone" id="drop-zone">
+          <div class="drop-zone-icon">📄</div>
+          <p>MoneyForwardのCSVファイルをドラッグ&ドロップ<br>または下のボタンからファイルを選択</p>
+          <div class="drop-zone-btns">
+            <button class="btn-upload" id="btn-select-csv">ファイルを選択</button>
+            <button class="btn-dummy" id="btn-load-dummy">ダミーデータを読み込む</button>
+          </div>
+          <div class="import-progress" id="import-progress">
+            <span class="spinner"></span>
+            <span id="import-progress-msg">インポート中...</span>
+          </div>
+        </div>
+        <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+      </div>
+
+      <!-- 固定費/変動費タブ -->
+      <div class="card">
+        <div class="expense-type-tabs">
+          <button class="expense-type-tab active" data-type="variable">
+            変動費 <span class="badge" id="badge-variable">0</span>
+          </button>
+          <button class="expense-type-tab" data-type="fixed">
+            固定費 <span class="badge" id="badge-fixed">0</span>
+          </button>
+        </div>
+
+        <!-- STEP1 -->
+        <div id="step1-section">
+          <div class="step-header">
+            <span class="step-badge">STEP1 必須</span>
+            <span class="step-desc">ベスト1・ワースト1を選んで評価してください</span>
+          </div>
+          <div id="step1-list"></div>
+        </div>
+
+        <!-- STEP2 -->
+        <div id="step2-section">
+          <div class="step-header">
+            <span class="step-badge step2">STEP2 推奨</span>
+            <span class="step-desc">ベスト2〜5・ワースト2〜5を選んで評価</span>
+            <button class="btn-skip" id="btn-skip-step2">スキップ</button>
+          </div>
+          <div id="step2-list"></div>
+        </div>
+
+        <!-- STEP3 -->
+        <div id="step3-section">
+          <div class="step-header">
+            <span class="step-badge step3">STEP3 任意</span>
+            <span class="step-desc">残りの支出を評価（いつでも中断可）</span>
+          </div>
+          <div id="step3-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== タブ3：分析 ===== -->
+    <div class="tab-content" id="tab-analysis">
+      <div class="period-btns">
+        <button class="period-btn active" data-months="3">3ヶ月</button>
+        <button class="period-btn" data-months="6">6ヶ月</button>
+        <button class="period-btn" data-months="12">12ヶ月</button>
+        <button class="period-btn" data-months="0">全期間</button>
+      </div>
+
+      <div class="analysis-grid">
+        <!-- ベスト・ワースト推移 -->
+        <div class="card" style="grid-column:1/-1">
+          <div class="card-title"><span class="icon">📈</span>ベスト・ワースト満足度推移</div>
+          <div class="chart-wrap"><canvas id="chart-trend"></canvas></div>
+        </div>
+
+        <!-- カテゴリ別平均満足度 -->
+        <div class="card">
+          <div class="card-title"><span class="icon">📊</span>カテゴリ別平均満足度</div>
+          <div class="chart-wrap"><canvas id="chart-category"></canvas></div>
+        </div>
+
+        <!-- 月別支出トレンド -->
+        <div class="card">
+          <div class="card-title"><span class="icon">💹</span>月別支出トレンド</div>
+          <div class="chart-wrap"><canvas id="chart-monthly"></canvas></div>
+        </div>
+      </div>
+
+      <!-- コスパ最悪 -->
+      <div class="card">
+        <div class="card-title"><span class="icon">💸</span>コスパ最悪支出（高額×低満足度）</div>
+        <div id="worst-cospa-list"><div class="empty-state"><div class="empty-icon">🔍</div><p>データなし</p></div></div>
+      </div>
+
+      <!-- 隠れ神支出 -->
+      <div class="card">
+        <div class="card-title"><span class="icon">✨</span>隠れ神支出（少額×高満足度）</div>
+        <div id="best-cospa-list"><div class="empty-state"><div class="empty-icon">🔍</div><p>データなし</p></div></div>
+      </div>
+
+      <!-- キーワード頻度 -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🏷️</span>メモキーワード頻度</div>
+        <div class="keyword-list" id="keyword-list"><div class="text-sub" style="font-size:13px">メモデータなし</div></div>
+      </div>
+
+      <!-- ワーストカテゴリ常連警告 -->
+      <div class="card" id="worst-category-warning" style="display:none">
+        <div class="card-title"><span class="icon">⚠️</span>ワーストカテゴリ常連警告</div>
+        <div id="worst-category-list"></div>
+      </div>
+
+      <!-- アーカイブ -->
+      <div id="archive-section" class="hidden">
+        <button class="archive-toggle" id="btn-archive-toggle">▶ アーカイブ（1年超のデータ）を表示</button>
+        <div id="archive-content" class="hidden">
+          <div class="card">
+            <div class="card-title"><span class="icon">📦</span>アーカイブ</div>
+            <div id="archive-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== タブ4：予算 ===== -->
+    <div class="tab-content" id="tab-budget">
+      <div class="card">
+        <div class="card-title"><span class="icon">➕</span>予算を追加・編集</div>
+        <div class="budget-form">
+          <input type="text" id="budget-category" placeholder="カテゴリ名（例：食費）" list="category-list">
+          <datalist id="category-list"></datalist>
+          <input type="number" id="budget-amount" placeholder="月額予算（円）" min="0">
+          <button class="btn-add-budget" id="btn-add-budget">追加</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">📋</span>今月の予算vs実績</div>
+        <div style="overflow-x:auto">
+          <table class="budget-table">
+            <thead>
+              <tr>
+                <th>カテゴリ</th>
+                <th>予算</th>
+                <th>実績</th>
+                <th>差額</th>
+                <th>達成率</th>
+                <th>平均満足度</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="budget-table-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state hidden" id="budget-empty">
+          <div class="empty-icon">💰</div>
+          <p>予算が登録されていません<br>上のフォームから追加してください</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-wrap -->
+
+  <footer class="app-footer">支出満足度管理アプリ © 2024</footer>
+</div><!-- /app -->
+
+<!-- 編集モーダル -->
+<div class="modal-backdrop hidden" id="edit-modal">
+  <div class="modal">
+    <h3>編集理由を選択してください</h3>
+    <p>編集は当月のみ可能です。誤入力の理由を選択してください。</p>
+    <div class="edit-reason-group" id="edit-reason-group">
+      <label class="edit-reason-label">
+        <input type="radio" name="edit-reason" value="金額・店名が間違っていた"> 金額・店名が間違っていた
+      </label>
+      <label class="edit-reason-label">
+        <input type="radio" name="edit-reason" value="誤ってタップした"> 誤ってタップした
+      </label>
+      <label class="edit-reason-label">
+        <input type="radio" name="edit-reason" value="重複して評価した"> 重複して評価した
+      </label>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" id="btn-edit-cancel">キャンセル</button>
+      <button class="btn-modal-ok" id="btn-edit-confirm">次へ</button>
+    </div>
+  </div>
+</div>
+
+<!-- 確認モーダル -->
+<div class="modal-backdrop hidden" id="confirm-modal">
+  <div class="modal">
+    <h3>確認</h3>
+    <p id="confirm-msg">誤入力として編集します。よろしいですか？</p>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" id="btn-confirm-cancel">キャンセル</button>
+      <button class="btn-modal-ok" id="btn-confirm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- エラーモーダル -->
+<div class="modal-backdrop hidden" id="error-modal">
+  <div class="modal">
+    <h3>⚠️ エラー</h3>
+    <p id="error-msg"></p>
+    <div class="modal-btns">
+      <button class="btn-modal-ok" id="btn-error-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================================================================
+// encoding.js インライン（Shift-JIS→UTF-8変換用ミニマル実装）
+// ===================================================================
+const Encoding = (() => {
+  // SJIS→Unicode変換テーブル（必要最小限 - 主要文字のみ）
+  function detectEncoding(bytes) {
+    for (let i = 0; i < bytes.length - 1; i++) {
+      const b = bytes[i];
+      if ((b >= 0x81 && b <= 0x9F) || (b >= 0xE0 && b <= 0xEF)) {
+        const b2 = bytes[i + 1];
+        if ((b2 >= 0x40 && b2 <= 0x7E) || (b2 >= 0x80 && b2 <= 0xFC)) return 'SJIS';
+      }
+      if (b === 0xEF && bytes[i + 1] === 0xBB && bytes[i + 2] === 0xBF) return 'UTF8';
+    }
+    return 'UTF8';
+  }
+  function sjisToUtf8(bytes) {
+    const arr = new Uint8Array(bytes);
+    const dec = new TextDecoder('shift-jis');
+    return dec.decode(arr);
+  }
+  return { detect: detectEncoding, convert: sjisToUtf8 };
+})();
+
+// ===================================================================
+// 定数・設定
+// ===================================================================
+const APP_PASSWORD = 'manzoku2024';
+const STORAGE_KEY_GAS_URL = 'manzoku_gas_url';
+const STORAGE_KEY_SETTINGS = 'manzoku_settings';
+const STORAGE_KEY_FAILED_QUEUE = 'manzoku_failed_queue';
+const DUMMY_MODE_KEY = 'manzoku_dummy_mode';
+
+// ===================================================================
+// 状態管理
+// ===================================================================
+let state = {
+  expenses: [],      // 全支出データ
+  ratings: {},       // expense_id → rating object
+  budgets: [],       // 予算設定
+  settings: { alert_days_before_month_end: 5 },
+  currentExpenseType: 'variable', // 'fixed' | 'variable'
+  analysisPeriod: 3, // months
+  gasUrl: localStorage.getItem(STORAGE_KEY_GAS_URL) || '',
+  isDummyMode: false,
+  editTarget: null,  // 編集中の expense_id
+  charts: {},        // chart instances
+  step2Skipped: false,
+};
+
+// ===================================================================
+// 認証
+// ===================================================================
+(function initAuth() {
+  if (sessionStorage.getItem('manzoku_auth') === '1') {
+    showApp();
+    return;
+  }
+  document.getElementById('btn-login').addEventListener('click', tryLogin);
+  document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+})();
+
+function tryLogin() {
+  const pw = document.getElementById('pw-input').value;
+  if (pw === APP_PASSWORD) {
+    sessionStorage.setItem('manzoku_auth', '1');
+    showApp();
+  } else {
+    document.getElementById('auth-error').classList.remove('hidden');
+  }
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  initApp();
+}
+
+// ===================================================================
+// アプリ初期化
+// ===================================================================
+async function initApp() {
+  initTabs();
+  initDropZone();
+  initExpenseTypeTabs();
+  initPeriodBtns();
+  initBudgetForm();
+  initGasSettings();
+  initEditModal();
+  checkMonthEndAlert();
+
+  // GAS URLが設定済みならデータ取得
+  if (state.gasUrl) {
+    updateGasStatus('loading');
+    await loadAllData();
+    await autoLockPreviousMonth();
+  } else {
+    // ダミーデータ表示
+    loadDummyData();
+  }
+  renderAll();
+}
+
+// ===================================================================
+// タブ切り替え
+// ===================================================================
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'analysis') renderAnalysis();
+      if (btn.dataset.tab === 'budget') renderBudget();
+    });
+  });
+}
+
+// ===================================================================
+// GAS通信
+// ===================================================================
+function updateGasStatus(status) {
+  const dot = document.getElementById('status-dot');
+  const label = document.getElementById('status-label');
+  dot.className = 'status-dot ' + status;
+  const labels = { ok: '接続済', err: 'エラー', loading: '接続中...', '': '未接続' };
+  label.textContent = labels[status] || '未接続';
+  document.getElementById('storage-status').textContent =
+    status === 'ok' ? 'ストレージ: Googleスプレッドシートに接続済' :
+    status === 'err' ? 'ストレージ: 接続エラー' :
+    status === 'loading' ? 'ストレージ: 接続確認中...' : 'ストレージ: GASに接続されていません';
+}
+
+async function gasGet(action, params = {}) {
+  if (!state.gasUrl) throw new Error('GAS URLが設定されていません');
+  const url = new URL(state.gasUrl);
+  url.searchParams.set('action', action);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString(), { redirect: 'follow' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function gasPost(action, data) {
+  if (!state.gasUrl) throw new Error('GAS URLが設定されていません');
+  const res = await fetch(state.gasUrl, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...data }),
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+// 失敗キューに追加して次回再送
+function enqueueFailedRequest(action, data) {
+  const queue = JSON.parse(sessionStorage.getItem(STORAGE_KEY_FAILED_QUEUE) || '[]');
+  queue.push({ action, data, ts: Date.now() });
+  sessionStorage.setItem(STORAGE_KEY_FAILED_QUEUE, JSON.stringify(queue));
+}
+
+async function flushFailedQueue() {
+  const queue = JSON.parse(sessionStorage.getItem(STORAGE_KEY_FAILED_QUEUE) || '[]');
+  if (!queue.length || !state.gasUrl) return;
+  const remaining = [];
+  for (const item of queue) {
+    try {
+      await gasPost(item.action, item.data);
+    } catch {
+      remaining.push(item);
+    }
+  }
+  sessionStorage.setItem(STORAGE_KEY_FAILED_QUEUE, JSON.stringify(remaining));
+}
+
+// ===================================================================
+// データ読み込み
+// ===================================================================
+async function loadAllData() {
+  showLoading('データを読み込み中...');
+  try {
+    await flushFailedQueue();
+    const [expRes, ratRes, budRes, setRes] = await Promise.all([
+      gasGet('get_expenses'),
+      gasGet('get_ratings'),
+      gasGet('get_budgets'),
+      gasGet('get_settings'),
+    ]);
+    if (expRes.status === 'ok') state.expenses = expRes.data || [];
+    if (ratRes.status === 'ok') {
+      state.ratings = {};
+      (ratRes.data || []).forEach(r => { state.ratings[r.expense_id] = r; });
+    }
+    if (budRes.status === 'ok') state.budgets = budRes.data || [];
+    if (setRes.status === 'ok') {
+      (setRes.data || []).forEach(s => {
+        if (s.key === 'alert_days_before_month_end') state.settings.alert_days_before_month_end = Number(s.value);
+        if (s.key === 'password') {} // パスワード変更は対応外
+      });
+    }
+    state.isDummyMode = false;
+    document.getElementById('dummy-banner').classList.remove('visible');
+    updateGasStatus('ok');
+  } catch (e) {
+    updateGasStatus('err');
+    console.error(e);
+  } finally {
+    hideLoading();
+  }
+}
+
+async function autoLockPreviousMonth() {
+  try {
+    await gasPost('lock_ratings', {});
+  } catch { /* 失敗しても続行 */ }
+}
+
+// ===================================================================
+// ダミーデータ
+// ===================================================================
+function loadDummyData() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const prevMm = String(now.getMonth() === 0 ? 12 : now.getMonth()).padStart(2, '0');
+  const prevYyyy = now.getMonth() === 0 ? yyyy - 1 : yyyy;
+  const d = (day) => `${yyyy}/${mm}/${String(day).padStart(2, '0')}`;
+  const pd = (day) => `${prevYyyy}/${prevMm}/${String(day).padStart(2, '0')}`;
+
+  state.expenses = [
+    { expense_id:'d1', date:d(3),  shop_name:'スーパー三和', category:'食費', amount:3200, expense_type:'variable', is_rated:true, imported_at:'' },
+    { expense_id:'d2', date:d(5),  shop_name:'カフェベローチェ', category:'カフェ', amount:680, expense_type:'variable', is_rated:true, imported_at:'' },
+    { expense_id:'d3', date:d(7),  shop_name:'ユニクロ', category:'衣服', amount:5980, expense_type:'variable', is_rated:false, imported_at:'' },
+    { expense_id:'d4', date:d(9),  shop_name:'吉野家', category:'食費', amount:490, expense_type:'variable', is_rated:true, imported_at:'' },
+    { expense_id:'d5', date:d(11), shop_name:'Amazonプライム', category:'サブスク', amount:600, expense_type:'fixed', is_rated:true, imported_at:'' },
+    { expense_id:'d6', date:d(12), shop_name:'セブンイレブン', category:'食費', amount:340, expense_type:'variable', is_rated:false, imported_at:'' },
+    { expense_id:'d7', date:d(14), shop_name:'映画「インターステラー」', category:'娯楽', amount:2000, expense_type:'variable', is_rated:true, imported_at:'' },
+    { expense_id:'d8', date:d(15), shop_name:'マツモトキヨシ', category:'日用品', amount:1240, expense_type:'variable', is_rated:false, imported_at:'' },
+    { expense_id:'d9', date:d(18), shop_name:'コインランドリー', category:'日用品', amount:400, expense_type:'variable', is_rated:false, imported_at:'' },
+    { expense_id:'d10',date:d(20), shop_name:'居酒屋 夢や', category:'外食', amount:3800, expense_type:'variable', is_rated:true, imported_at:'' },
+    { expense_id:'d11',date:d(1),  shop_name:'家賃', category:'家賃', amount:78000, expense_type:'fixed', is_rated:true, imported_at:'' },
+    { expense_id:'d12',date:d(1),  shop_name:'東京電力', category:'電気', amount:4200, expense_type:'fixed', is_rated:true, imported_at:'' },
+    { expense_id:'d13',date:d(1),  shop_name:'ソフトバンク', category:'通信', amount:3200, expense_type:'fixed', is_rated:false, imported_at:'' },
+    { expense_id:'d14',date:d(1),  shop_name:'Netflix', category:'サブスク', amount:1490, expense_type:'fixed', is_rated:true, imported_at:'' },
+    { expense_id:'d15',date:d(1),  shop_name:'Spotify', category:'サブスク', amount:980, expense_type:'fixed', is_rated:false, imported_at:'' },
+    // 先月データ
+    { expense_id:'p1', date:pd(5),  shop_name:'スーパー三和', category:'食費', amount:2800, expense_type:'variable', is_rated:true, imported_at:'' },
+    { expense_id:'p2', date:pd(10), shop_name:'温泉旅行', category:'娯楽', amount:25000, expense_type:'variable', is_rated:true, imported_at:'' },
+    { expense_id:'p3', date:pd(15), shop_name:'家賃', category:'家賃', amount:78000, expense_type:'fixed', is_rated:true, imported_at:'' },
+  ];
+
+  state.ratings = {
+    'd1': { rating_id:'r1', expense_id:'d1', score:7, memo:'野菜が新鮮だった', edit_log:'', rated_at:'', locked:false },
+    'd2': { rating_id:'r2', expense_id:'d2', score:6, memo:'静かで集中できた', edit_log:'', rated_at:'', locked:false },
+    'd4': { rating_id:'r4', expense_id:'d4', score:4, memo:'混んでた', edit_log:'', rated_at:'', locked:false },
+    'd5': { rating_id:'r5', expense_id:'d5', score:8, memo:'映画充実', edit_log:'', rated_at:'', locked:false },
+    'd7': { rating_id:'r7', expense_id:'d7', score:9, memo:'感動した！最高の映画体験', edit_log:'', rated_at:'', locked:false },
+    'd10':{ rating_id:'r10',expense_id:'d10',score:3, memo:'料理がいまいち 次は行かない', edit_log:'', rated_at:'', locked:false },
+    'd11':{ rating_id:'r11',expense_id:'d11',score:7, memo:'立地は良い', edit_log:'', rated_at:'', locked:false },
+    'd12':{ rating_id:'r12',expense_id:'d12',score:5, memo:'', edit_log:'', rated_at:'', locked:false },
+    'd14':{ rating_id:'r14',expense_id:'d14',score:9, memo:'毎日使ってる', edit_log:'', rated_at:'', locked:false },
+    'p1': { rating_id:'rp1',expense_id:'p1', score:7, memo:'', edit_log:'', rated_at:'', locked:true },
+    'p2': { rating_id:'rp2',expense_id:'p2', score:10,memo:'最高の思い出！', edit_log:'', rated_at:'', locked:true },
+    'p3': { rating_id:'rp3',expense_id:'p3', score:6, memo:'', edit_log:'', rated_at:'', locked:true },
+  };
+
+  state.budgets = [
+    { category:'食費', monthly_budget:30000 },
+    { category:'娯楽', monthly_budget:10000 },
+    { category:'日用品', monthly_budget:5000 },
+    { category:'外食', monthly_budget:8000 },
+  ];
+
+  state.isDummyMode = true;
+  document.getElementById('dummy-banner').classList.add('visible');
+}
+
+// ===================================================================
+// 全体再レンダリング
+// ===================================================================
+function renderAll() {
+  renderHome();
+  renderAward();
+  updateCategoryDatalist();
+}
+
+// ===================================================================
+// ホームタブ
+// ===================================================================
+function renderHome() {
+  const now = new Date();
+  const thisMonthExpenses = getThisMonthExpenses();
+  const total = thisMonthExpenses.reduce((s, e) => s + e.amount, 0);
+  const rated = thisMonthExpenses.filter(e => e.is_rated || state.ratings[e.expense_id]).length;
+  const ratedExpenses = thisMonthExpenses.filter(e => state.ratings[e.expense_id]);
+  const avgScore = ratedExpenses.length
+    ? (ratedExpenses.reduce((s, e) => s + state.ratings[e.expense_id].score, 0) / ratedExpenses.length).toFixed(1)
+    : '-';
+
+  document.getElementById('home-total').textContent = '¥' + total.toLocaleString();
+  document.getElementById('home-count').textContent = thisMonthExpenses.length + '件';
+  document.getElementById('home-rated').textContent = rated + '件';
+  document.getElementById('home-avg-score').textContent = avgScore;
+
+  // 進捗計算
+  const hasStep1Best = getRankedExpenses('best', 1).length > 0;
+  const hasStep1Worst = getRankedExpenses('worst', 1).length > 0;
+  const step1Done = hasStep1Best && hasStep1Worst ? 100 : (hasStep1Best || hasStep1Worst ? 50 : 0);
+
+  const bestCount = Math.min(getRankedExpenses('best').length, 5);
+  const worstCount = Math.min(getRankedExpenses('worst').length, 5);
+  const step2Done = Math.round(((bestCount + worstCount) / 10) * 100);
+
+  const step3Done = thisMonthExpenses.length > 0 ? Math.round((rated / thisMonthExpenses.length) * 100) : 0;
+
+  document.getElementById('step1-bar').style.width = step1Done + '%';
+  document.getElementById('step1-pct').textContent = step1Done + '%';
+  document.getElementById('step2-bar').style.width = step2Done + '%';
+  document.getElementById('step2-pct').textContent = step2Done + '%';
+  document.getElementById('step3-bar').style.width = step3Done + '%';
+  document.getElementById('step3-pct').textContent = step3Done + '%';
+
+  // 先月ベスト・ワースト
+  const lastMonthExpenses = getLastMonthExpenses();
+  const sortedLast = lastMonthExpenses.filter(e => state.ratings[e.expense_id])
+    .sort((a, b) => state.ratings[b.expense_id].score - state.ratings[a.expense_id].score);
+  renderBestWorstList('last-best-list', sortedLast.slice(0, 3));
+  renderBestWorstList('last-worst-list', sortedLast.slice(-3).reverse());
+
+  // 予算オーバーアラート
+  renderHomeAlerts(thisMonthExpenses);
+
+  // 円グラフ
+  renderHomePieChart(thisMonthExpenses);
+
+  // GAS URL入力欄
+  document.getElementById('gas-url-input').value = state.gasUrl;
+  document.getElementById('alert-days-input').value = state.settings.alert_days_before_month_end;
+}
+
+function renderBestWorstList(elId, expenses) {
+  const el = document.getElementById(elId);
+  if (!expenses.length) { el.innerHTML = '<div class="text-sub" style="font-size:12px">データなし</div>'; return; }
+  el.innerHTML = expenses.map(e => {
+    const r = state.ratings[e.expense_id];
+    return `<div class="bw-item">${e.shop_name} <span class="bw-score">${r ? r.score : '-'}</span></div>`;
+  }).join('');
+}
+
+function renderHomeAlerts(expenses) {
+  const alertsEl = document.getElementById('home-alerts');
+  const overBudgets = [];
+  state.budgets.forEach(b => {
+    const actual = expenses.filter(e => e.category === b.category).reduce((s, e) => s + e.amount, 0);
+    if (actual > b.monthly_budget) {
+      overBudgets.push({ category: b.category, budget: b.monthly_budget, actual });
+    }
+  });
+  if (!overBudgets.length) {
+    alertsEl.innerHTML = '<div class="text-sub" style="font-size:13px">予算オーバーなし ✅</div>';
+  } else {
+    alertsEl.innerHTML = overBudgets.map(o =>
+      `<div class="alert-card">⚠️ <strong>${o.category}</strong>: ¥${o.actual.toLocaleString()} / 予算¥${o.monthly_budget.toLocaleString()} (${Math.round(o.actual/o.monthly_budget*100)}%)</div>`
+    ).join('');
+  }
+}
+
+function renderHomePieChart(expenses) {
+  const catMap = {};
+  expenses.forEach(e => { catMap[e.category] = (catMap[e.category] || 0) + e.amount; });
+  const labels = Object.keys(catMap);
+  const data = Object.values(catMap);
+  const colors = ['#FF6B6B','#4ECDC4','#FFE66D','#2C3E50','#A29BFE','#FD79A8','#55EFC4','#FDCB6E','#74B9FF','#E17055'];
+
+  const ctx = document.getElementById('chart-home-pie').getContext('2d');
+  if (state.charts.homePie) state.charts.homePie.destroy();
+  state.charts.homePie = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors.slice(0, labels.length), borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { font: { family: 'Noto Sans JP', size: 11 }, boxWidth: 12 } } }
+    }
+  });
+}
+
+// ===================================================================
+// 月末アラート
+// ===================================================================
+function checkMonthEndAlert() {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const remaining = lastDay - now.getDate();
+  const alertDays = state.settings.alert_days_before_month_end;
+  const banner = document.getElementById('month-end-banner');
+  if (remaining <= alertDays) {
+    document.getElementById('month-end-msg').textContent =
+      `月末まであと${remaining}日です。支出の誤入力確認をしてください。`;
+    banner.classList.remove('hidden');
+  } else {
+    banner.classList.add('hidden');
+  }
+}
+
+// ===================================================================
+// 表彰式タブ
+// ===================================================================
+function renderAward() {
+  const thisMonth = getThisMonthExpenses();
+  const variable = thisMonth.filter(e => e.expense_type === 'variable');
+  const fixed = thisMonth.filter(e => e.expense_type === 'fixed');
+
+  const unratedVar = variable.filter(e => !state.ratings[e.expense_id]).length;
+  const unratedFixed = fixed.filter(e => !state.ratings[e.expense_id]).length;
+  document.getElementById('badge-variable').textContent = unratedVar;
+  document.getElementById('badge-fixed').textContent = unratedFixed;
+
+  const current = state.currentExpenseType;
+  const expenses = current === 'variable' ? variable : fixed;
+
+  renderExpenseList(expenses);
+}
+
+function renderExpenseList(expenses) {
+  const now = new Date();
+  const isLocked = now.getDate() < 1; // 翌月1日以降でロック（常に当月は編集可）
+  const isCurrentMonth = true; // 当月データのみ表示前提
+
+  // 各ステップに振り分け
+  const best = getRankedExpenses('best');
+  const worst = getRankedExpenses('worst');
+  const bestIds = new Set(best.map(e => e.expense_id));
+  const worstIds = new Set(worst.map(e => e.expense_id));
+
+  const step1Best = best[0];
+  const step1Worst = worst[0];
+
+  const step1Expenses = expenses.filter(e =>
+    (step1Best && e.expense_id === step1Best.expense_id) ||
+    (step1Worst && e.expense_id === step1Worst.expense_id)
+  );
+  // STEP1未完了の場合は全て表示
+  const step1Complete = step1Best && step1Worst;
+
+  const step2Expenses = expenses.filter(e =>
+    (bestIds.has(e.expense_id) || worstIds.has(e.expense_id)) &&
+    !step1Expenses.find(s => s.expense_id === e.expense_id)
+  );
+
+  const step3Expenses = expenses.filter(e =>
+    !step1Expenses.find(s => s.expense_id === e.expense_id) &&
+    !step2Expenses.find(s => s.expense_id === e.expense_id)
+  );
+
+  if (!step1Complete) {
+    // STEP1未完了：全支出をSTEP1として表示
+    document.getElementById('step1-list').innerHTML = '';
+    document.getElementById('step2-section').classList.add('hidden');
+    document.getElementById('step3-section').classList.add('hidden');
+    if (!expenses.length) {
+      document.getElementById('step1-list').innerHTML = `<div class="empty-state"><div class="empty-icon">📂</div><p>支出データがありません<br>CSVをインポートしてください</p></div>`;
+      return;
+    }
+    expenses.forEach(e => {
+      document.getElementById('step1-list').appendChild(createExpenseCard(e, 'step1', isCurrentMonth));
+    });
+  } else {
+    document.getElementById('step2-section').classList.remove('hidden');
+    document.getElementById('step3-section').classList.remove('hidden');
+    // STEP1
+    document.getElementById('step1-list').innerHTML = '';
+    step1Expenses.forEach(e => document.getElementById('step1-list').appendChild(createExpenseCard(e, 'step1', isCurrentMonth)));
+    if (!step1Expenses.length) document.getElementById('step1-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">ベスト1・ワースト1が選択されています</div>';
+
+    // STEP2
+    document.getElementById('step2-list').innerHTML = '';
+    if (!state.step2Skipped) {
+      step2Expenses.forEach(e => document.getElementById('step2-list').appendChild(createExpenseCard(e, 'step2', isCurrentMonth)));
+      if (!step2Expenses.length) document.getElementById('step2-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">STEP2完了 ✅</div>';
+    } else {
+      document.getElementById('step2-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">スキップ済み</div>';
+    }
+
+    // STEP3
+    document.getElementById('step3-list').innerHTML = '';
+    step3Expenses.forEach(e => document.getElementById('step3-list').appendChild(createExpenseCard(e, 'step3', isCurrentMonth)));
+    if (!step3Expenses.length) document.getElementById('step3-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">全て評価済み 🎉</div>';
+  }
+}
+
+function createExpenseCard(expense, step, isCurrentMonth) {
+  const card = document.createElement('div');
+  const rating = state.ratings[expense.expense_id];
+  const isRated = !!rating;
+
+  const isBest = isRanked(expense.expense_id, 'best');
+  const isWorst = isRanked(expense.expense_id, 'worst');
+  const bestRank = getBestWorstRank(expense.expense_id, 'best');
+  const worstRank = getBestWorstRank(expense.expense_id, 'worst');
+
+  card.className = 'expense-card' + (isRated ? ' rated' : '') + (isBest ? ' best-rank' : '') + (isWorst ? ' worst-rank' : '');
+  card.dataset.expenseId = expense.expense_id;
+
+  const ratedBadge = isRated ? `<span class="expense-rated-badge">✅ ${rating.score}点</span>` : '';
+  const rankLabel = isBest ? `<span style="color:var(--mint);font-size:11px;font-weight:700">🏅 ベスト${bestRank}</span>` :
+                   isWorst ? `<span style="color:var(--coral);font-size:11px;font-weight:700">😢 ワースト${worstRank}</span>` : '';
+
+  card.innerHTML = `
+    <div class="expense-card-header">
+      <div class="expense-info">
+        <div class="expense-shop">${escHtml(expense.shop_name)} ${ratedBadge} ${rankLabel}</div>
+        <div class="expense-meta">${expense.category} · ${expense.date}</div>
+      </div>
+      <div class="expense-amount">¥${expense.amount.toLocaleString()}</div>
+    </div>
+    <div class="rank-selector" id="rank-${expense.expense_id}">
+      ${[1,2,3,4,5].map(n => `
+        <button class="rank-btn best ${n <= Math.min(getRankedExpenses('best').length+1,5) ? '' : 'disabled-rank'}" data-rank-type="best" data-rank="${n}" data-expense-id="${expense.expense_id}">🏅B${n}</button>
+        <button class="rank-btn worst ${n <= Math.min(getRankedExpenses('worst').length+1,5) ? '' : 'disabled-rank'}" data-rank-type="worst" data-rank="${n}" data-expense-id="${expense.expense_id}">😢W${n}</button>
+      `).join('')}
+    </div>
+    <div class="rating-btns">
+      ${[1,2,3,4,5,6,7,8,9,10].map(n =>
+        `<button class="rating-btn${rating && rating.score === n ? ' selected' : ''}" data-score="${n}" data-expense-id="${expense.expense_id}">${n}</button>`
+      ).join('')}
+    </div>
+    <textarea class="memo-input" rows="2" placeholder="メモ（任意）" data-expense-id="${expense.expense_id}">${rating ? escHtml(rating.memo || '') : ''}</textarea>
+    ${isRated && isCurrentMonth && !(rating.locked) ? `<div class="expense-card-footer"><button class="btn-edit-rating" data-expense-id="${expense.expense_id}">誤入力として編集</button></div>` : ''}
+  `;
+
+  // ランクボタンの状態更新
+  updateRankButtons(card, expense.expense_id);
+
+  // ランクボタンイベント
+  card.querySelectorAll('[data-rank-type]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.rankType;
+      const rank = Number(btn.dataset.rank);
+      const id = btn.dataset.expenseId;
+      toggleRank(id, type, rank);
+      renderAward();
+    });
+  });
+
+  // 評価ボタンイベント
+  card.querySelectorAll('.rating-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const score = Number(btn.dataset.score);
+      const id = btn.dataset.expenseId;
+      saveRating(id, score, card.querySelector('.memo-input').value);
+    });
+  });
+
+  // メモ自動保存
+  const memoInput = card.querySelector('.memo-input');
+  let memoTimer;
+  memoInput.addEventListener('input', () => {
+    clearTimeout(memoTimer);
+    memoTimer = setTimeout(() => {
+      const r = state.ratings[expense.expense_id];
+      if (r) saveRating(expense.expense_id, r.score, memoInput.value);
+    }, 800);
+  });
+
+  // 編集ボタン
+  const editBtn = card.querySelector('.btn-edit-rating');
+  if (editBtn) {
+    editBtn.addEventListener('click', () => openEditModal(expense.expense_id));
+  }
+
+  return card;
+}
+
+function updateRankButtons(card, expenseId) {
+  const best = getRankedExpenses('best');
+  const worst = getRankedExpenses('worst');
+  const bestIds = best.map(e => e.expense_id);
+  const worstIds = worst.map(e => e.expense_id);
+
+  card.querySelectorAll('[data-rank-type="best"]').forEach(btn => {
+    const rank = Number(btn.dataset.rank);
+    const isMine = bestIds[rank - 1] === expenseId;
+    btn.className = 'rank-btn best' + (isMine ? ' active-best' : '');
+  });
+  card.querySelectorAll('[data-rank-type="worst"]').forEach(btn => {
+    const rank = Number(btn.dataset.rank);
+    const isMine = worstIds[rank - 1] === expenseId;
+    btn.className = 'rank-btn worst' + (isMine ? ' active-worst' : '');
+  });
+}
+
+// ランク管理（sessionStorageに保存）
+function getRankedExpenses(type) {
+  const key = 'manzoku_rank_' + type + '_' + getCurrentYearMonth();
+  return JSON.parse(sessionStorage.getItem(key) || '[]')
+    .map(id => state.expenses.find(e => e.expense_id === id))
+    .filter(Boolean);
+}
+
+function toggleRank(expenseId, type, rank) {
+  const key = 'manzoku_rank_' + type + '_' + getCurrentYearMonth();
+  let ranks = JSON.parse(sessionStorage.getItem(key) || '[]');
+  const idx = ranks.indexOf(expenseId);
+  if (idx !== -1) {
+    ranks.splice(idx, 1); // 解除
+  } else {
+    ranks = ranks.filter((_, i) => i !== rank - 1); // 同ランクを上書き
+    ranks.splice(rank - 1, 0, expenseId);
+    ranks = ranks.slice(0, 5);
+  }
+  sessionStorage.setItem(key, JSON.stringify(ranks));
+}
+
+function isRanked(expenseId, type) {
+  const key = 'manzoku_rank_' + type + '_' + getCurrentYearMonth();
+  return JSON.parse(sessionStorage.getItem(key) || '[]').includes(expenseId);
+}
+
+function getBestWorstRank(expenseId, type) {
+  const key = 'manzoku_rank_' + type + '_' + getCurrentYearMonth();
+  const idx = JSON.parse(sessionStorage.getItem(key) || '[]').indexOf(expenseId);
+  return idx === -1 ? null : idx + 1;
+}
+
+// ===================================================================
+// 評価保存
+// ===================================================================
+async function saveRating(expenseId, score, memo) {
+  const existing = state.ratings[expenseId];
+  const now = new Date().toISOString();
+  const editLog = existing
+    ? (existing.edit_log || '') + `\n${now.slice(0,10)}に変更：${existing.score}→${score}`
+    : '';
+
+  const ratingData = {
+    expense_id: expenseId,
+    score,
+    memo: memo || '',
+    edit_log: editLog,
+    rated_at: now,
+    locked: false,
+  };
+  state.ratings[expenseId] = { ...ratingData, rating_id: existing ? existing.rating_id : 'r_' + Date.now() };
+
+  // is_rated更新
+  const exp = state.expenses.find(e => e.expense_id === expenseId);
+  if (exp) exp.is_rated = true;
+
+  // UIを即時更新（カードの評価ボタン）
+  document.querySelectorAll(`.rating-btn[data-expense-id="${expenseId}"]`).forEach(btn => {
+    btn.classList.toggle('selected', Number(btn.dataset.score) === score);
+  });
+
+  renderHome();
+
+  // GASへ保存
+  if (state.gasUrl && !state.isDummyMode) {
+    try {
+      await gasPost('save_rating', { rating: state.ratings[expenseId] });
+    } catch {
+      enqueueFailedRequest('save_rating', { rating: state.ratings[expenseId] });
+    }
+  }
+}
+
+// ===================================================================
+// 固定費/変動費タブ切り替え
+// ===================================================================
+function initExpenseTypeTabs() {
+  document.querySelectorAll('.expense-type-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.expense-type-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      state.currentExpenseType = tab.dataset.type;
+      renderAward();
+    });
+  });
+
+  document.getElementById('btn-skip-step2').addEventListener('click', () => {
+    state.step2Skipped = true;
+    renderAward();
+  });
+}
+
+// ===================================================================
+// CSVインポート
+// ===================================================================
+function initDropZone() {
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('csv-file-input');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) processCSVFile(file);
+  });
+
+  document.getElementById('btn-select-csv').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) processCSVFile(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  document.getElementById('btn-load-dummy').addEventListener('click', () => {
+    loadDummyData();
+    renderAll();
+  });
+
+  document.getElementById('btn-use-real').addEventListener('click', () => {
+    state.isDummyMode = false;
+    state.expenses = [];
+    state.ratings = {};
+    document.getElementById('dummy-banner').classList.remove('visible');
+    renderAll();
+    document.querySelector('[data-tab="award"]').click();
+  });
+}
+
+async function processCSVFile(file) {
+  const progressEl = document.getElementById('import-progress');
+  const progressMsg = document.getElementById('import-progress-msg');
+  progressEl.style.display = 'flex';
+  progressMsg.textContent = 'CSVを解析中...';
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const enc = Encoding.detect(bytes);
+    let text;
+    if (enc === 'SJIS') {
+      text = Encoding.convert(bytes);
+    } else {
+      text = new TextDecoder('utf-8').decode(bytes);
+    }
+
+    const expenses = parseMoneyForwardCSV(text);
+    if (!expenses.length) throw new Error('支出データが見つかりませんでした');
+
+    progressMsg.textContent = `${expenses.length}件を処理中...`;
+
+    // 重複排除
+    const existing = new Set(state.expenses.map(e => `${e.date}_${e.amount}_${e.shop_name}`));
+    const newExpenses = expenses.filter(e => !existing.has(`${e.date}_${e.amount}_${e.shop_name}`));
+
+    state.expenses.push(...newExpenses);
+    state.isDummyMode = false;
+    document.getElementById('dummy-banner').classList.remove('visible');
+
+    // GASへ送信（50件ずつ）
+    if (state.gasUrl) {
+      for (let i = 0; i < newExpenses.length; i += 50) {
+        const chunk = newExpenses.slice(i, i + 50);
+        progressMsg.textContent = `GASへ送信中... ${i + chunk.length}/${newExpenses.length}件`;
+        try {
+          await gasPost('save_expenses', { expenses: chunk });
+        } catch {
+          enqueueFailedRequest('save_expenses', { expenses: chunk });
+        }
+      }
+    }
+
+    progressMsg.textContent = `${newExpenses.length}件をインポートしました`;
+    setTimeout(() => { progressEl.style.display = 'none'; }, 2000);
+    renderAll();
+  } catch (e) {
+    progressEl.style.display = 'none';
+    showError('CSVの読み込みに失敗しました。\n' + e.message);
+  }
+}
+
+function parseMoneyForwardCSV(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+
+  // ヘッダー行を検出
+  let headerIdx = -1;
+  let headers = [];
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.some(c => /日付|計算日|date/i.test(c))) {
+      headerIdx = i;
+      headers = cols;
+      break;
+    }
+  }
+  if (headerIdx === -1) throw new Error('ヘッダー行が見つかりませんでした');
+
+  // 列インデックス取得
+  const colIdx = {
+    date: findColIdx(headers, ['日付','計算日','date']),
+    amount: findColIdx(headers, ['金額（円）','金額','amount']),
+    shop: findColIdx(headers, ['内容','店名','shop']),
+    category: findColIdx(headers, ['カテゴリ','大カテゴリ','category']),
+    type: findColIdx(headers, ['収支','入出金','type']),
+  };
+
+  const FIXED_KEYWORDS = ['家賃','電気','ガス','水道','通信','保険','サブスク','Netflix','Spotify','Amazon Prime','NHK','駐車場'];
+
+  const expenses = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length < 3) continue;
+
+    const rawAmount = cols[colIdx.amount] || '';
+    const amount = parseFloat(rawAmount.replace(/[,¥\s]/g, '')) || 0;
+    if (amount <= 0) continue; // 収入除外
+
+    const typeVal = colIdx.type >= 0 ? cols[colIdx.type] : '';
+    if (/収入|income/i.test(typeVal)) continue;
+
+    const category = colIdx.category >= 0 ? cols[colIdx.category] : '';
+    if (/収入/i.test(category)) continue;
+
+    const shopName = colIdx.shop >= 0 ? cols[colIdx.shop] : '';
+    const date = (cols[colIdx.date] || '').replace(/-/g, '/');
+
+    const isFixed = FIXED_KEYWORDS.some(k => shopName.includes(k) || category.includes(k));
+
+    expenses.push({
+      expense_id: 'e_' + Date.now() + '_' + i,
+      date,
+      shop_name: shopName,
+      category,
+      amount,
+      expense_type: isFixed ? 'fixed' : 'variable',
+      is_rated: false,
+      imported_at: new Date().toISOString(),
+    });
+  }
+  return expenses;
+}
+
+function findColIdx(headers, candidates) {
+  for (const c of candidates) {
+    const idx = headers.findIndex(h => h.includes(c));
+    if (idx !== -1) return idx;
+  }
+  return 0;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let inQuote = false;
+  let current = '';
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuote && line[i + 1] === '"') { current += '"'; i++; }
+      else { inQuote = !inQuote; }
+    } else if (ch === ',' && !inQuote) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+// ===================================================================
+// 分析タブ
+// ===================================================================
+function initPeriodBtns() {
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.analysisPeriod = Number(btn.dataset.months);
+      renderAnalysis();
+    });
+  });
+}
+
+function renderAnalysis() {
+  const months = state.analysisPeriod;
+  const cutoff = months === 0 ? new Date(0) : new Date();
+  if (months > 0) cutoff.setMonth(cutoff.getMonth() - months);
+
+  const filtered = state.expenses.filter(e => new Date(e.date.replace(/\//g, '-')) >= cutoff);
+  const rated = filtered.filter(e => state.ratings[e.expense_id]);
+
+  renderTrendChart(filtered, months);
+  renderCategoryChart(rated);
+  renderMonthlyChart(filtered);
+  renderCospaAnalysis(filtered);
+  renderKeywords(rated);
+  renderWorstCategoryWarning();
+  renderArchive();
+}
+
+function getMonthList(months) {
+  const list = [];
+  const now = new Date();
+  const count = months === 0 ? 24 : months;
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    list.push(`${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  return list;
+}
+
+function renderTrendChart(expenses, months) {
+  const monthList = getMonthList(months || 12);
+  const bestScores = [];
+  const worstScores = [];
+
+  monthList.forEach(ym => {
+    const monthExp = expenses.filter(e => e.date.startsWith(ym));
+    const rated = monthExp.filter(e => state.ratings[e.expense_id]).map(e => state.ratings[e.expense_id].score);
+    bestScores.push(rated.length ? Math.max(...rated) : null);
+    worstScores.push(rated.length ? Math.min(...rated) : null);
+  });
+
+  const ctx = document.getElementById('chart-trend').getContext('2d');
+  if (state.charts.trend) state.charts.trend.destroy();
+  state.charts.trend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: monthList.map(ym => ym.slice(5) + '月'),
+      datasets: [
+        { label: 'ベスト', data: bestScores, borderColor: '#4ECDC4', backgroundColor: 'rgba(78,205,196,.15)', tension: 0.4, spanGaps: true },
+        { label: 'ワースト', data: worstScores, borderColor: '#FF6B6B', backgroundColor: 'rgba(255,107,107,.15)', tension: 0.4, spanGaps: true },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { y: { min: 0, max: 10 } },
+      plugins: { legend: { labels: { font: { family: 'Noto Sans JP' } } } }
+    }
+  });
+}
+
+function renderCategoryChart(rated) {
+  const catMap = {};
+  rated.forEach(e => {
+    const cat = e.category;
+    if (!catMap[cat]) catMap[cat] = [];
+    catMap[cat].push(state.ratings[e.expense_id].score);
+  });
+  const labels = Object.keys(catMap);
+  const data = labels.map(cat => (catMap[cat].reduce((a, b) => a + b, 0) / catMap[cat].length).toFixed(1));
+  const sorted = labels.map((l, i) => ({ l, d: Number(data[i]) })).sort((a, b) => b.d - a.d);
+
+  const ctx = document.getElementById('chart-category').getContext('2d');
+  if (state.charts.category) state.charts.category.destroy();
+  state.charts.category = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(x => x.l),
+      datasets: [{ data: sorted.map(x => x.d), backgroundColor: '#4ECDC4', borderRadius: 6 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { min: 0, max: 10 } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function renderMonthlyChart(expenses) {
+  const monthList = getMonthList(state.analysisPeriod || 12);
+  const catSet = [...new Set(expenses.map(e => e.category))].slice(0, 8);
+  const colors = ['#FF6B6B','#4ECDC4','#FFE66D','#2C3E50','#A29BFE','#FD79A8','#55EFC4','#FDCB6E'];
+
+  const datasets = catSet.map((cat, i) => ({
+    label: cat,
+    data: monthList.map(ym => expenses.filter(e => e.date.startsWith(ym) && e.category === cat).reduce((s, e) => s + e.amount, 0)),
+    backgroundColor: colors[i],
+  }));
+
+  const ctx = document.getElementById('chart-monthly').getContext('2d');
+  if (state.charts.monthly) state.charts.monthly.destroy();
+  state.charts.monthly = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: monthList.map(ym => ym.slice(5) + '月'), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { stacked: true }, y: { stacked: true } },
+      plugins: { legend: { labels: { font: { family: 'Noto Sans JP', size: 10 }, boxWidth: 10 } } }
+    }
+  });
+}
+
+function renderCospaAnalysis(expenses) {
+  const rated = expenses.filter(e => state.ratings[e.expense_id]);
+  if (!rated.length) return;
+
+  const amounts = rated.map(e => e.amount).sort((a, b) => a - b);
+  const p30 = amounts[Math.floor(amounts.length * 0.3)];
+  const p70 = amounts[Math.floor(amounts.length * 0.7)];
+
+  // コスパ最悪：高額×低満足度
+  const badCospa = rated.filter(e => e.amount >= p70 && state.ratings[e.expense_id].score <= 3)
+    .sort((a, b) => b.amount - a.amount).slice(0, 5);
+
+  // 隠れ神：少額×高満足度
+  const hiddenGem = rated.filter(e => e.amount <= p30 && state.ratings[e.expense_id].score >= 8)
+    .sort((a, b) => state.ratings[b.expense_id].score - state.ratings[a.expense_id].score).slice(0, 5);
+
+  renderInsightList('worst-cospa-list', badCospa, e => `¥${e.amount.toLocaleString()} / 満足度${state.ratings[e.expense_id].score}`);
+  renderInsightList('best-cospa-list', hiddenGem, e => `¥${e.amount.toLocaleString()} / 満足度${state.ratings[e.expense_id].score}`);
+}
+
+function renderInsightList(elId, expenses, metaFn) {
+  const el = document.getElementById(elId);
+  if (!expenses.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><p>データなし</p></div>';
+    return;
+  }
+  el.innerHTML = expenses.map((e, i) => `
+    <div class="insight-item">
+      <div class="insight-rank">${i + 1}</div>
+      <div class="insight-info">
+        <div class="insight-shop">${escHtml(e.shop_name)}</div>
+        <div class="insight-meta">${e.category} · ${e.date}</div>
+      </div>
+      <div class="insight-score">${metaFn(e)}</div>
+    </div>
+  `).join('');
+}
+
+function renderKeywords(expenses) {
+  const memos = expenses.map(e => state.ratings[e.expense_id]?.memo || '').join(' ');
+  const words = memos.split(/[\s、。！？!?　,.]/g).filter(w => w.length >= 2);
+  const freq = {};
+  words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 20);
+
+  const el = document.getElementById('keyword-list');
+  if (!sorted.length) {
+    el.innerHTML = '<div class="text-sub" style="font-size:13px">メモデータなし</div>';
+    return;
+  }
+  el.innerHTML = sorted.map(([w, c]) =>
+    `<span class="keyword-chip">${escHtml(w)}<span class="kw-count">${c}</span></span>`
+  ).join('');
+}
+
+function renderWorstCategoryWarning() {
+  const warnings = [];
+  const months = ['1', '2', '3'].map((_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const catCounts = {};
+  months.forEach(ym => {
+    const monthExp = state.expenses.filter(e => e.date.startsWith(ym));
+    const rated = monthExp.filter(e => state.ratings[e.expense_id]);
+    if (!rated.length) return;
+    const minScore = Math.min(...rated.map(e => state.ratings[e.expense_id].score));
+    const worstCats = rated.filter(e => state.ratings[e.expense_id].score === minScore).map(e => e.category);
+    worstCats.forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
+  });
+
+  Object.entries(catCounts).forEach(([cat, count]) => {
+    if (count >= 3) warnings.push(cat);
+  });
+
+  const warnEl = document.getElementById('worst-category-warning');
+  const listEl = document.getElementById('worst-category-list');
+  if (warnings.length) {
+    warnEl.style.display = '';
+    listEl.innerHTML = warnings.map(cat =>
+      `<div class="alert-card">⚠️ <strong>${escHtml(cat)}</strong> が3ヶ月連続でワーストカテゴリに入っています</div>`
+    ).join('');
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
+function renderArchive() {
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const archive = state.expenses.filter(e => new Date(e.date.replace(/\//g, '-')) < oneYearAgo);
+
+  const section = document.getElementById('archive-section');
+  if (!archive.length) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+
+  document.getElementById('btn-archive-toggle').addEventListener('click', function() {
+    const content = document.getElementById('archive-content');
+    content.classList.toggle('hidden');
+    this.textContent = content.classList.contains('hidden') ? '▶ アーカイブを表示' : '▼ アーカイブを非表示';
+  });
+}
+
+// ===================================================================
+// 予算タブ
+// ===================================================================
+function initBudgetForm() {
+  document.getElementById('btn-add-budget').addEventListener('click', addBudget);
+}
+
+function updateCategoryDatalist() {
+  const cats = [...new Set(state.expenses.map(e => e.category))];
+  document.getElementById('category-list').innerHTML =
+    cats.map(c => `<option value="${escHtml(c)}">`).join('');
+}
+
+async function addBudget() {
+  const catInput = document.getElementById('budget-category');
+  const amtInput = document.getElementById('budget-amount');
+  const cat = catInput.value.trim();
+  const amt = Number(amtInput.value);
+  if (!cat || !amt) return;
+
+  const existing = state.budgets.findIndex(b => b.category === cat);
+  const budget = { category: cat, monthly_budget: amt, updated_at: new Date().toISOString() };
+  if (existing >= 0) state.budgets[existing] = budget;
+  else state.budgets.push(budget);
+
+  catInput.value = '';
+  amtInput.value = '';
+  renderBudget();
+
+  if (state.gasUrl && !state.isDummyMode) {
+    try { await gasPost('save_budget', { budget }); }
+    catch { enqueueFailedRequest('save_budget', { budget }); }
+  }
+}
+
+function renderBudget() {
+  const thisMonth = getThisMonthExpenses();
+  const tbody = document.getElementById('budget-table-body');
+  const empty = document.getElementById('budget-empty');
+
+  if (!state.budgets.length) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  // カテゴリ別平均満足度
+  const catAvgScore = {};
+  const catExp = state.expenses.filter(e => state.ratings[e.expense_id]);
+  const catMap = {};
+  catExp.forEach(e => {
+    if (!catMap[e.category]) catMap[e.category] = [];
+    catMap[e.category].push(state.ratings[e.expense_id].score);
+  });
+  Object.entries(catMap).forEach(([cat, scores]) => {
+    catAvgScore[cat] = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+  });
+
+  tbody.innerHTML = state.budgets.map(b => {
+    const actual = thisMonth.filter(e => e.category === b.category).reduce((s, e) => s + e.amount, 0);
+    const diff = b.monthly_budget - actual;
+    const rate = b.monthly_budget > 0 ? Math.round(actual / b.monthly_budget * 100) : 0;
+    const over = actual > b.monthly_budget;
+    const avgScore = catAvgScore[b.category] || '-';
+    const achieveFill = Math.min(rate, 100);
+
+    return `<tr class="${over ? 'over' : ''}">
+      <td><strong>${escHtml(b.category)}</strong>${over ? '<span class="over-badge">超過</span>' : ''}</td>
+      <td>¥${b.monthly_budget.toLocaleString()}</td>
+      <td>¥${actual.toLocaleString()}</td>
+      <td style="color:${over ? 'var(--danger)' : 'var(--success)'}">${over ? '-' : '+'}¥${Math.abs(diff).toLocaleString()}</td>
+      <td>
+        ${rate}%
+        <div class="achieve-bar"><div class="achieve-fill${over ? ' over' : ''}" style="width:${achieveFill}%"></div></div>
+      </td>
+      <td>${avgScore} ${avgScore !== '-' && Number(avgScore) >= 7 ? '⬆️予算増を検討' : ''}</td>
+      <td><button class="btn-del-budget" data-cat="${escHtml(b.category)}" title="削除">🗑️</button></td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.btn-del-budget').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cat = btn.dataset.cat;
+      state.budgets = state.budgets.filter(b => b.category !== cat);
+      renderBudget();
+      if (state.gasUrl && !state.isDummyMode) {
+        try { await gasPost('save_budget', { budget: { category: cat, monthly_budget: 0, updated_at: new Date().toISOString(), deleted: true } }); }
+        catch {}
+      }
+    });
+  });
+}
+
+// ===================================================================
+// GAS設定
+// ===================================================================
+function initGasSettings() {
+  document.getElementById('btn-save-gas-url').addEventListener('click', async () => {
+    const url = document.getElementById('gas-url-input').value.trim();
+    state.gasUrl = url;
+    localStorage.setItem(STORAGE_KEY_GAS_URL, url);
+    if (url) {
+      updateGasStatus('loading');
+      await loadAllData();
+      renderAll();
+    }
+  });
+
+  document.getElementById('btn-init-gas').addEventListener('click', async () => {
+    if (!state.gasUrl) { showError('GAS URLを先に設定してください'); return; }
+    showLoading('スプレッドシートを初期化中...');
+    try {
+      await gasPost('setup', {});
+      hideLoading();
+      showBanner('スプレッドシートの初期化が完了しました ✅', 'success');
+    } catch (e) {
+      hideLoading();
+      showError('初期化に失敗しました: ' + e.message);
+    }
+  });
+
+  document.getElementById('btn-save-alert-days').addEventListener('click', async () => {
+    const days = Number(document.getElementById('alert-days-input').value);
+    state.settings.alert_days_before_month_end = days;
+    checkMonthEndAlert();
+    if (state.gasUrl && !state.isDummyMode) {
+      try { await gasPost('save_settings', { settings: [{ key: 'alert_days_before_month_end', value: String(days) }] }); }
+      catch {}
+    }
+  });
+}
+
+// ===================================================================
+// 編集モーダル
+// ===================================================================
+function initEditModal() {
+  document.getElementById('btn-edit-cancel').addEventListener('click', closeEditModal);
+  document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
+    document.getElementById('confirm-modal').classList.add('hidden');
+  });
+  document.getElementById('btn-error-close').addEventListener('click', () => {
+    document.getElementById('error-modal').classList.add('hidden');
+  });
+
+  document.getElementById('btn-edit-confirm').addEventListener('click', () => {
+    const selected = document.querySelector('input[name="edit-reason"]:checked');
+    if (!selected) { alert('理由を選択してください'); return; }
+    closeEditModal();
+    document.getElementById('confirm-modal').classList.remove('hidden');
+    document.getElementById('btn-confirm-ok').onclick = () => {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      openEditForm(state.editTarget, selected.value);
+    };
+  });
+}
+
+function openEditModal(expenseId) {
+  state.editTarget = expenseId;
+  document.querySelectorAll('input[name="edit-reason"]').forEach(r => r.checked = false);
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.add('hidden');
+  state.editTarget = null;
+}
+
+function openEditForm(expenseId, reason) {
+  const rating = state.ratings[expenseId];
+  if (!rating) return;
+
+  // メモ欄に編集理由を追記してスコアをリセット
+  const now = new Date().toISOString().slice(0, 10);
+  const editNote = `[${now} 編集理由: ${reason}]`;
+  rating.memo = (rating.memo ? rating.memo + '\n' : '') + editNote;
+  rating.edit_log = (rating.edit_log || '') + '\n' + editNote;
+
+  // 評価ボタンをリセット（再評価を促す）
+  document.querySelectorAll(`.rating-btn[data-expense-id="${expenseId}"]`).forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  // メモ欄を更新
+  const memoEl = document.querySelector(`.memo-input[data-expense-id="${expenseId}"]`);
+  if (memoEl) memoEl.value = rating.memo;
+}
+
+// ===================================================================
+// ユーティリティ
+// ===================================================================
+function getThisMonthExpenses() {
+  const ym = getCurrentYearMonth();
+  return state.expenses.filter(e => e.date.startsWith(ym));
+}
+
+function getLastMonthExpenses() {
+  const now = new Date();
+  const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  const m = now.getMonth() === 0 ? 12 : now.getMonth();
+  const ym = `${y}/${String(m).padStart(2, '0')}`;
+  return state.expenses.filter(e => e.date.startsWith(ym));
+}
+
+function getCurrentYearMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg || '';
+  document.getElementById('loading-overlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.add('hidden');
+}
+
+function showError(msg) {
+  document.getElementById('error-msg').textContent = msg;
+  document.getElementById('error-modal').classList.remove('hidden');
+}
+
+function showBanner(msg, type) {
+  const banner = document.createElement('div');
+  banner.className = `banner ${type}`;
+  banner.textContent = msg;
+  document.querySelector('.tab-content.active').prepend(banner);
+  setTimeout(() => banner.remove(), 4000);
+}
+</script>
+</body>
+</html>
