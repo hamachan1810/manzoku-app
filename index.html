@@ -444,6 +444,7 @@ a{color:inherit;text-decoration:none}
           <div class="step-header">
             <span class="step-badge step3">STEP3 任意</span>
             <span class="step-desc">残りの支出を評価（いつでも中断可）</span>
+            <button class="btn-skip" id="btn-skip-step3">スキップ</button>
           </div>
           <div id="step3-list"></div>
         </div>
@@ -652,6 +653,7 @@ let state = {
   editTarget: null,  // 編集中の expense_id
   charts: {},        // chart instances
   step2Skipped: false,
+  step3Skipped: false,
   currentMonth: (() => { const n = new Date(); return `${n.getFullYear()}/${String(n.getMonth()+1).padStart(2,'0')}`; })(),
 };
 
@@ -1121,8 +1123,14 @@ function renderExpenseList(expenses) {
 
     // STEP3
     document.getElementById('step3-list').innerHTML = '';
-    step3Expenses.forEach(e => document.getElementById('step3-list').appendChild(createExpenseCard(e, 'step3', isCurrentMonth)));
-    if (!step3Expenses.length) document.getElementById('step3-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">全て評価済み 🎉</div>';
+    const step3Skipped = state.step2Skipped || state.step3Skipped;
+    document.getElementById('btn-skip-step3').style.display = state.step2Skipped ? 'none' : '';
+    if (step3Skipped) {
+      document.getElementById('step3-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">スキップ済み</div>';
+    } else {
+      step3Expenses.forEach(e => document.getElementById('step3-list').appendChild(createExpenseCard(e, 'step3', isCurrentMonth)));
+      if (!step3Expenses.length) document.getElementById('step3-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">全て評価済み 🎉</div>';
+    }
   }
 }
 
@@ -1316,6 +1324,12 @@ function initExpenseTypeTabs() {
 
   document.getElementById('btn-skip-step2').addEventListener('click', () => {
     state.step2Skipped = true;
+    state.step3Skipped = true; // STEP2スキップ時はSTEP3も自動スキップ
+    renderAward();
+  });
+
+  document.getElementById('btn-skip-step3').addEventListener('click', () => {
+    state.step3Skipped = true;
     renderAward();
   });
 }
