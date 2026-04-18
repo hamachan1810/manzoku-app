@@ -1433,11 +1433,10 @@ function parseMoneyForwardCSV(text) {
     amount:   findColIdx(headers, ['金額（円）','金額','amount']),
     shop:     findColIdx(headers, ['内容','店名','shop']),
     category: findColIdx(headers, ['大項目','カテゴリ','大カテゴリ','category']),
+    subcat:   findColIdx(headers, ['中項目']),
     type:     findColIdx(headers, ['収支','入出金','type']),
     transfer: findColIdx(headers, ['振替']),
   };
-
-  const FIXED_KEYWORDS = ['家賃','電気','ガス','水道','通信','保険','サブスク','Netflix','Spotify','Amazon Prime','NHK','駐車場'];
 
   const expenses = [];
   for (let i = headerIdx + 1; i < lines.length; i++) {
@@ -1459,10 +1458,12 @@ function parseMoneyForwardCSV(text) {
     const category = colIdx.category >= 0 ? cols[colIdx.category] : '';
     if (/収入/i.test(category)) continue;
 
+    const subcat = colIdx.subcat >= 0 ? cols[colIdx.subcat] : '';
     const shopName = colIdx.shop >= 0 ? cols[colIdx.shop] : '';
     const date = (colIdx.date >= 0 ? cols[colIdx.date] || '' : '').replace(/-/g, '/');
 
-    const isFixed = FIXED_KEYWORDS.some(k => shopName.includes(k) || category.includes(k));
+    // 固定費：大項目「住宅」または中項目「サブスク」
+    const isFixed = category === '住宅' || subcat === 'サブスク';
 
     expenses.push({
       expense_id: 'e_' + Date.now() + '_' + i,
