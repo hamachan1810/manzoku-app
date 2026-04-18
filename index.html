@@ -57,6 +57,12 @@ a{color:inherit;text-decoration:none}
 .tab-btn:hover:not(.active){color:var(--text)}
 @media(min-width:480px){.tab-btn{font-size:14px;padding:14px 8px}}
 
+/* ===== 月セレクター ===== */
+.month-nav{background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:16px;padding:8px 16px;position:sticky;top:97px;z-index:98}
+.month-nav-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:14px;cursor:pointer;color:var(--text-sub)}
+.month-nav-btn:hover{background:var(--surface);color:var(--text)}
+.month-nav-label{font-size:15px;font-weight:700;color:var(--text);min-width:80px;text-align:center}
+
 /* ===== メインコンテンツ ===== */
 .tab-content{display:none;max-width:960px;margin:0 auto;padding:16px;width:100%}
 .tab-content.active{display:block}
@@ -292,6 +298,12 @@ a{color:inherit;text-decoration:none}
       <button class="tab-btn" data-tab="budget">💰 予算</button>
     </div>
   </nav>
+
+  <div class="month-nav">
+    <button class="month-nav-btn" id="btn-prev-month">◀</button>
+    <span class="month-nav-label" id="current-month-label"></span>
+    <button class="month-nav-btn" id="btn-next-month">▶</button>
+  </div>
 
   <div class="main-wrap">
 
@@ -640,6 +652,7 @@ let state = {
   editTarget: null,  // 編集中の expense_id
   charts: {},        // chart instances
   step2Skipped: false,
+  currentMonth: (() => { const n = new Date(); return `${n.getFullYear()}/${String(n.getMonth()+1).padStart(2,'0')}`; })(),
 };
 
 // ===================================================================
@@ -675,6 +688,7 @@ function showApp() {
 // ===================================================================
 async function initApp() {
   initTabs();
+  initMonthNav();
   initDropZone();
   initExpenseTypeTabs();
   initPeriodBtns();
@@ -693,6 +707,31 @@ async function initApp() {
     loadDummyData();
   }
   renderAll();
+}
+
+// ===================================================================
+// 月セレクター
+// ===================================================================
+function initMonthNav() {
+  updateMonthNavLabel();
+  document.getElementById('btn-prev-month').addEventListener('click', () => {
+    const [y, m] = state.currentMonth.split('/').map(Number);
+    const d = new Date(y, m - 2, 1);
+    state.currentMonth = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    updateMonthNavLabel();
+    renderAll();
+  });
+  document.getElementById('btn-next-month').addEventListener('click', () => {
+    const [y, m] = state.currentMonth.split('/').map(Number);
+    const d = new Date(y, m, 1);
+    state.currentMonth = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    updateMonthNavLabel();
+    renderAll();
+  });
+}
+
+function updateMonthNavLabel() {
+  document.getElementById('current-month-label').textContent = state.currentMonth;
 }
 
 // ===================================================================
@@ -782,7 +821,7 @@ async function loadAllData() {
       gasGet('get_budgets'),
       gasGet('get_settings'),
     ]);
-    if (expRes.status === 'ok') state.expenses = expRes.data || [];
+    if (expRes.status === 'ok') state.expenses = (expRes.data || []).map(e => ({ ...e, date: normalizeDate(e.date) }));
     if (ratRes.status === 'ok') {
       state.ratings = {};
       (ratRes.data || []).forEach(r => { state.ratings[r.expense_id] = r; });
@@ -1389,11 +1428,13 @@ function parseMoneyForwardCSV(text) {
 
   // 列インデックス取得
   const colIdx = {
-    date: findColIdx(headers, ['日付','計算日','date']),
-    amount: findColIdx(headers, ['金額（円）','金額','amount']),
-    shop: findColIdx(headers, ['内容','店名','shop']),
-    category: findColIdx(headers, ['カテゴリ','大カテゴリ','category']),
-    type: findColIdx(headers, ['収支','入出金','type']),
+    calc:     findColIdx(headers, ['計算対象']),
+    date:     findColIdx(headers, ['日付','計算日','date']),
+    amount:   findColIdx(headers, ['金額（円）','金額','amount']),
+    shop:     findColIdx(headers, ['内容','店名','shop']),
+    category: findColIdx(headers, ['大項目','カテゴリ','大カテゴリ','category']),
+    type:     findColIdx(headers, ['収支','入出金','type']),
+    transfer: findColIdx(headers, ['振替']),
   };
 
   const FIXED_KEYWORDS = ['家賃','電気','ガス','水道','通信','保険','サブスク','Netflix','Spotify','Amazon Prime','NHK','駐車場'];
@@ -1403,18 +1444,23 @@ function parseMoneyForwardCSV(text) {
     const cols = parseCSVLine(lines[i]);
     if (cols.length < 3) continue;
 
-    const rawAmount = cols[colIdx.amount] || '';
-    const amount = parseFloat(rawAmount.replace(/[,¥\s]/g, '')) || 0;
-    if (amount <= 0) continue; // 収入除外
+    // 計算対象=0（振替・除外項目）をスキップ
+    if (colIdx.calc >= 0 && cols[colIdx.calc] === '0') continue;
 
-    const typeVal = colIdx.type >= 0 ? cols[colIdx.type] : '';
-    if (/収入|income/i.test(typeVal)) continue;
+    // 振替（口座間移動）をスキップ
+    if (colIdx.transfer >= 0 && cols[colIdx.transfer] === '1') continue;
+
+    const rawAmount = colIdx.amount >= 0 ? cols[colIdx.amount] || '' : '';
+    const amount = parseFloat(rawAmount.replace(/[,¥\s]/g, '')) || 0;
+    // MoneyForwardでは支出は負値、収入は正値
+    if (amount >= 0) continue; // 収入・ゼロをスキップ
+    const absAmount = Math.abs(amount);
 
     const category = colIdx.category >= 0 ? cols[colIdx.category] : '';
     if (/収入/i.test(category)) continue;
 
     const shopName = colIdx.shop >= 0 ? cols[colIdx.shop] : '';
-    const date = (cols[colIdx.date] || '').replace(/-/g, '/');
+    const date = (colIdx.date >= 0 ? cols[colIdx.date] || '' : '').replace(/-/g, '/');
 
     const isFixed = FIXED_KEYWORDS.some(k => shopName.includes(k) || category.includes(k));
 
@@ -1423,7 +1469,7 @@ function parseMoneyForwardCSV(text) {
       date,
       shop_name: shopName,
       category,
-      amount,
+      amount: absAmount,
       expense_type: isFixed ? 'fixed' : 'variable',
       is_rated: false,
       imported_at: new Date().toISOString(),
@@ -1437,7 +1483,7 @@ function findColIdx(headers, candidates) {
     const idx = headers.findIndex(h => h.includes(c));
     if (idx !== -1) return idx;
   }
-  return 0;
+  return -1;
 }
 
 function parseCSVLine(line) {
@@ -1894,8 +1940,21 @@ function getLastMonthExpenses() {
 }
 
 function getCurrentYearMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return state.currentMonth;
+}
+
+function normalizeDate(dateStr) {
+  if (!dateStr) return '';
+  // すでに yyyy/MM/dd 形式ならそのまま
+  if (/^\d{4}\/\d{2}\/\d{2}/.test(dateStr)) return dateStr.slice(0, 10);
+  // yyyy-MM-dd 形式
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr.slice(0, 10).replace(/-/g, '/');
+  // GASがDate型をStringで返した場合（例: "Tue Mar 31 2026 00:00:00 GMT+0900 ..."）
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  }
+  return dateStr;
 }
 
 function escHtml(str) {
