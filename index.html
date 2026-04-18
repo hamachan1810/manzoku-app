@@ -741,7 +741,7 @@ async function gasPost(action, data) {
   const res = await fetch(state.gasUrl, {
     method: 'POST',
     redirect: 'follow',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action, ...data }),
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);
