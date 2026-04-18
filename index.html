@@ -1462,8 +1462,8 @@ function parseMoneyForwardCSV(text) {
     const shopName = colIdx.shop >= 0 ? cols[colIdx.shop] : '';
     const date = (colIdx.date >= 0 ? cols[colIdx.date] || '' : '').replace(/-/g, '/');
 
-    // 固定費：大項目「住宅」または中項目「サブスク」
-    const isFixed = category === '住宅' || subcat === 'サブスク';
+    // 固定費：大項目「住宅」（中項目「水道光熱費」を除く）または中項目「サブスク」
+    const isFixed = (category === '住宅' && subcat !== '水道光熱費') || subcat === 'サブスク';
 
     expenses.push({
       expense_id: 'e_' + Date.now() + '_' + i,
