@@ -125,11 +125,56 @@ a{color:inherit;text-decoration:none}
 .btn-dummy:hover,.btn-upload:hover{opacity:.85}
 .import-progress{margin-top:12px;display:none}
 
-/* 固定費/変動費タブ */
-.expense-type-tabs{display:flex;background:var(--surface);border-radius:var(--radius-sm);padding:4px;margin-bottom:16px}
-.expense-type-tab{flex:1;padding:8px;text-align:center;border-radius:6px;font-size:13px;font-weight:500;color:var(--text-sub);transition:all .2s;position:relative}
-.expense-type-tab.active{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+/* ベスト/ワーストタブ */
+.rank-type-tabs{display:flex;background:var(--surface);border-radius:var(--radius-sm);padding:4px;margin-bottom:16px}
+.rank-type-tab{flex:1;padding:8px;text-align:center;border-radius:6px;font-size:13px;font-weight:600;color:var(--text-sub);transition:all .2s}
+.rank-type-tab.active.best-tab{background:#fff;color:var(--mint);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.rank-type-tab.active.worst-tab{background:#fff;color:var(--coral);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.rank-tab-badge{display:inline-block;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:4px;vertical-align:middle}
+.rank-tab-badge.badge-best{background:var(--mint);color:#fff}
+.rank-tab-badge.badge-worst{background:var(--coral);color:#fff}
 .badge{display:inline-block;background:var(--coral);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:4px;vertical-align:middle}
+
+/* 変動費/固定費バッジ */
+.type-badge{display:inline-block;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle;flex-shrink:0}
+.type-badge.variable{background:#FFF3E0;color:#E65100;border:1px solid #FFCC80}
+.type-badge.fixed{background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9}
+
+/* 表彰式レイアウト */
+.award-layout{display:block}
+.award-main{}
+
+/* ランキングパネル: モバイルはボトムドロワー */
+.rank-panel{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);border-radius:16px 16px 0 0;z-index:200;box-shadow:0 -4px 20px rgba(0,0,0,.12);transition:transform .3s ease}
+.rank-panel.collapsed{transform:translateY(calc(100% - 60px))}
+.rank-panel-handle{padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:10px;min-height:60px;user-select:none}
+.handle-bar-wrap{display:flex;justify-content:center;width:100%;position:absolute;top:8px;left:0}
+.handle-bar{width:36px;height:4px;background:var(--border);border-radius:2px}
+.rank-panel-mini{display:flex;gap:16px;font-size:12px;overflow:hidden;flex:1}
+.rank-panel-mini-item{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-sub)}
+.rank-panel-mini-item b{color:var(--text)}
+.rank-panel-header-title{padding:4px 16px 0;font-size:13px;font-weight:700;color:var(--text);display:none}
+.rank-panel-body{padding:0 16px 24px;max-height:55vh;overflow-y:auto}
+.rank-section-title{font-weight:700;font-size:12px;color:var(--text-sub);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.05em}
+.rank-panel-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--surface)}
+.rank-panel-row:last-child{border-bottom:none}
+.rank-panel-lbl{font-weight:700;font-size:11px;width:26px;flex-shrink:0;color:var(--text-sub)}
+.rank-panel-name{flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.rank-panel-amt{font-size:12px;font-weight:700;color:var(--coral);white-space:nowrap}
+.rank-panel-empty{color:var(--border);font-size:12px;font-style:italic}
+.award-bottom-spacer{height:64px}
+
+/* PC: サイドパネルに切り替え */
+@media(min-width:768px){
+  .award-layout{display:flex;gap:16px;align-items:flex-start}
+  .award-main{flex:1;min-width:0}
+  .rank-panel{position:sticky;top:160px;width:220px;border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 2px 8px rgba(0,0,0,.06);transform:none!important;bottom:auto;left:auto;right:auto}
+  .rank-panel.collapsed{transform:none!important}
+  .rank-panel-handle{display:none}
+  .rank-panel-header-title{display:block;padding:14px 16px 0}
+  .rank-panel-body{padding:8px 16px 16px;max-height:calc(100vh - 240px)}
+  .award-bottom-spacer{display:none}
+}
 
 /* ステップ表示 */
 .step-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
@@ -409,46 +454,61 @@ a{color:inherit;text-decoration:none}
         <input type="file" id="csv-file-input" accept=".csv" class="hidden">
       </div>
 
-      <!-- 固定費/変動費タブ -->
-      <div class="card">
-        <div class="expense-type-tabs">
-          <button class="expense-type-tab active" data-type="variable">
-            変動費 <span class="badge" id="badge-variable">0</span>
-          </button>
-          <button class="expense-type-tab" data-type="fixed">
-            固定費 <span class="badge" id="badge-fixed">0</span>
-          </button>
+      <div class="award-layout">
+        <div class="award-main">
+          <!-- ベスト/ワースト選択タブ -->
+          <div class="card">
+            <div class="rank-type-tabs">
+              <button class="rank-type-tab best-tab active" data-rank="best">
+                🏅 ベスト選択 <span class="rank-tab-badge badge-best" id="badge-best">0/5</span>
+              </button>
+              <button class="rank-type-tab worst-tab" data-rank="worst">
+                😢 ワースト選択 <span class="rank-tab-badge badge-worst" id="badge-worst">0/5</span>
+              </button>
+            </div>
+
+            <!-- STEP1 -->
+            <div id="step1-section">
+              <div class="step-header">
+                <span class="step-badge" id="step1-badge">STEP1 必須</span>
+                <span class="step-desc" id="step1-desc">ベスト1を選んでください</span>
+              </div>
+              <div id="step1-list"></div>
+            </div>
+
+            <!-- STEP2 -->
+            <div id="step2-section" class="hidden">
+              <div class="step-header">
+                <span class="step-badge step2">STEP2 推奨</span>
+                <span class="step-desc" id="step2-desc">ベスト2〜5を選んで評価</span>
+                <button class="btn-skip" id="btn-skip-step2">スキップ</button>
+              </div>
+              <div id="step2-list"></div>
+            </div>
+
+            <!-- STEP3 -->
+            <div id="step3-section" class="hidden">
+              <div class="step-header">
+                <span class="step-badge step3">STEP3 任意</span>
+                <span class="step-desc">残りの支出を評価（いつでも中断可）</span>
+                <button class="btn-skip" id="btn-skip-step3">スキップ</button>
+              </div>
+              <div id="step3-list"></div>
+            </div>
+          </div>
         </div>
 
-        <!-- STEP1 -->
-        <div id="step1-section">
-          <div class="step-header">
-            <span class="step-badge">STEP1 必須</span>
-            <span class="step-desc">ベスト1・ワースト1を選んで評価してください</span>
+        <!-- ランキングパネル（モバイル:ドロワー / PC:サイドパネル） -->
+        <div class="rank-panel collapsed" id="rank-panel">
+          <div class="rank-panel-handle" id="rank-panel-handle">
+            <div class="handle-bar-wrap"><div class="handle-bar"></div></div>
+            <div class="rank-panel-mini" id="rank-panel-mini"></div>
           </div>
-          <div id="step1-list"></div>
-        </div>
-
-        <!-- STEP2 -->
-        <div id="step2-section">
-          <div class="step-header">
-            <span class="step-badge step2">STEP2 推奨</span>
-            <span class="step-desc">ベスト2〜5・ワースト2〜5を選んで評価</span>
-            <button class="btn-skip" id="btn-skip-step2">スキップ</button>
-          </div>
-          <div id="step2-list"></div>
-        </div>
-
-        <!-- STEP3 -->
-        <div id="step3-section">
-          <div class="step-header">
-            <span class="step-badge step3">STEP3 任意</span>
-            <span class="step-desc">残りの支出を評価（いつでも中断可）</span>
-            <button class="btn-skip" id="btn-skip-step3">スキップ</button>
-          </div>
-          <div id="step3-list"></div>
+          <div class="rank-panel-header-title">📋 選択状況</div>
+          <div class="rank-panel-body" id="rank-panel-body"></div>
         </div>
       </div>
+      <div class="award-bottom-spacer"></div>
     </div>
 
     <!-- ===== タブ3：分析 ===== -->
@@ -646,7 +706,7 @@ let state = {
   ratings: {},       // expense_id → rating object
   budgets: [],       // 予算設定
   settings: { alert_days_before_month_end: 5 },
-  currentExpenseType: 'variable', // 'fixed' | 'variable'
+  currentRankType: 'best', // 'best' | 'worst'
   analysisPeriod: 3, // months
   gasUrl: localStorage.getItem(STORAGE_KEY_GAS_URL) || '',
   isDummyMode: false,
@@ -1047,53 +1107,38 @@ function checkMonthEndAlert() {
 // ===================================================================
 function renderAward() {
   const thisMonth = getThisMonthExpenses();
-  const variable = thisMonth.filter(e => e.expense_type === 'variable');
-  const fixed = thisMonth.filter(e => e.expense_type === 'fixed');
 
-  const unratedVar = variable.filter(e => !state.ratings[e.expense_id]).length;
-  const unratedFixed = fixed.filter(e => !state.ratings[e.expense_id]).length;
-  document.getElementById('badge-variable').textContent = unratedVar;
-  document.getElementById('badge-fixed').textContent = unratedFixed;
+  // タブバッジ更新
+  const best = getRankedExpenses('best');
+  const worst = getRankedExpenses('worst');
+  document.getElementById('badge-best').textContent = `${best.length}/5`;
+  document.getElementById('badge-worst').textContent = `${worst.length}/5`;
 
-  const current = state.currentExpenseType;
-  const expenses = current === 'variable' ? variable : fixed;
+  // STEP説明文をタブに合わせて更新
+  const isBest = state.currentRankType === 'best';
+  document.getElementById('step1-desc').textContent = isBest ? 'ベスト1を選んでください' : 'ワースト1を選んでください';
+  document.getElementById('step2-desc').textContent = isBest ? 'ベスト2〜5を選んで評価' : 'ワースト2〜5を選んで評価';
 
-  renderExpenseList(expenses);
+  renderExpenseList(thisMonth);
+  renderRankPanel();
 }
 
 function renderExpenseList(expenses) {
-  const now = new Date();
-  const isLocked = now.getDate() < 1; // 翌月1日以降でロック（常に当月は編集可）
-  const isCurrentMonth = true; // 当月データのみ表示前提
+  const isCurrentMonth = true;
+  const rankType = state.currentRankType;
+  const ranked = getRankedExpenses(rankType);
+  const rankedIds = new Set(ranked.map(e => e.expense_id));
+  const rank1 = ranked[0];
+  const step1Complete = !!rank1;
 
-  // 各ステップに振り分け
-  const best = getRankedExpenses('best');
-  const worst = getRankedExpenses('worst');
-  const bestIds = new Set(best.map(e => e.expense_id));
-  const worstIds = new Set(worst.map(e => e.expense_id));
-
-  const step1Best = best[0];
-  const step1Worst = worst[0];
-
-  const step1Expenses = expenses.filter(e =>
-    (step1Best && e.expense_id === step1Best.expense_id) ||
-    (step1Worst && e.expense_id === step1Worst.expense_id)
-  );
-  // STEP1未完了の場合は全て表示
-  const step1Complete = step1Best && step1Worst;
-
-  const step2Expenses = expenses.filter(e =>
-    (bestIds.has(e.expense_id) || worstIds.has(e.expense_id)) &&
-    !step1Expenses.find(s => s.expense_id === e.expense_id)
-  );
-
-  const step3Expenses = expenses.filter(e =>
-    !step1Expenses.find(s => s.expense_id === e.expense_id) &&
-    !step2Expenses.find(s => s.expense_id === e.expense_id)
-  );
+  // STEP2候補: ランク2〜5に選択済みの支出
+  const step2Expenses = ranked.slice(1);
+  // STEP1表示: rank1のみ
+  const step1Expenses = rank1 ? [rank1] : [];
+  // STEP3: ランク未選択の支出
+  const step3Expenses = expenses.filter(e => !rankedIds.has(e.expense_id));
 
   if (!step1Complete) {
-    // STEP1未完了：全支出をSTEP1として表示
     document.getElementById('step1-list').innerHTML = '';
     document.getElementById('step2-section').classList.add('hidden');
     document.getElementById('step3-section').classList.add('hidden');
@@ -1107,29 +1152,35 @@ function renderExpenseList(expenses) {
   } else {
     document.getElementById('step2-section').classList.remove('hidden');
     document.getElementById('step3-section').classList.remove('hidden');
-    // STEP1
+
+    // STEP1: rank1の支出
     document.getElementById('step1-list').innerHTML = '';
     step1Expenses.forEach(e => document.getElementById('step1-list').appendChild(createExpenseCard(e, 'step1', isCurrentMonth)));
-    if (!step1Expenses.length) document.getElementById('step1-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">ベスト1・ワースト1が選択されています</div>';
 
-    // STEP2
+    // STEP2: rank2〜5
     document.getElementById('step2-list').innerHTML = '';
     if (!state.step2Skipped) {
-      step2Expenses.forEach(e => document.getElementById('step2-list').appendChild(createExpenseCard(e, 'step2', isCurrentMonth)));
-      if (!step2Expenses.length) document.getElementById('step2-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">STEP2完了 ✅</div>';
+      if (step2Expenses.length) {
+        step2Expenses.forEach(e => document.getElementById('step2-list').appendChild(createExpenseCard(e, 'step2', isCurrentMonth)));
+      } else {
+        document.getElementById('step2-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">STEP2完了 ✅</div>';
+      }
     } else {
       document.getElementById('step2-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">スキップ済み</div>';
     }
 
-    // STEP3
+    // STEP3: 残り全支出
     document.getElementById('step3-list').innerHTML = '';
     const step3Skipped = state.step2Skipped || state.step3Skipped;
     document.getElementById('btn-skip-step3').style.display = state.step2Skipped ? 'none' : '';
     if (step3Skipped) {
       document.getElementById('step3-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">スキップ済み</div>';
     } else {
-      step3Expenses.forEach(e => document.getElementById('step3-list').appendChild(createExpenseCard(e, 'step3', isCurrentMonth)));
-      if (!step3Expenses.length) document.getElementById('step3-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">全て評価済み 🎉</div>';
+      if (step3Expenses.length) {
+        step3Expenses.forEach(e => document.getElementById('step3-list').appendChild(createExpenseCard(e, 'step3', isCurrentMonth)));
+      } else {
+        document.getElementById('step3-list').innerHTML = '<div class="text-sub" style="font-size:13px;padding:8px">全て評価済み 🎉</div>';
+      }
     }
   }
 }
@@ -1148,22 +1199,28 @@ function createExpenseCard(expense, step, isCurrentMonth) {
   card.dataset.expenseId = expense.expense_id;
 
   const ratedBadge = isRated ? `<span class="expense-rated-badge">✅ ${rating.score}点</span>` : '';
-  const rankLabel = isBest ? `<span style="color:var(--mint);font-size:11px;font-weight:700">🏅 ベスト${bestRank}</span>` :
-                   isWorst ? `<span style="color:var(--coral);font-size:11px;font-weight:700">😢 ワースト${worstRank}</span>` : '';
+  const bestLabel = isBest ? `<span style="color:var(--mint);font-size:11px;font-weight:700">🏅B${bestRank}</span>` : '';
+  const worstLabel = isWorst ? `<span style="color:var(--coral);font-size:11px;font-weight:700">😢W${worstRank}</span>` : '';
+  const typeBadge = `<span class="type-badge ${expense.expense_type === 'variable' ? 'variable' : 'fixed'}">${expense.expense_type === 'variable' ? '変動' : '固定'}</span>`;
+
+  // 現在のタブに合わせてランクボタンを表示
+  const isBestTab = state.currentRankType === 'best';
+  const bestCount = getRankedExpenses('best').length;
+  const worstCount = getRankedExpenses('worst').length;
+  const rankBtns = isBestTab
+    ? [1,2,3,4,5].map(n => `<button class="rank-btn best ${n <= Math.min(bestCount+1,5) ? '' : 'disabled-rank'}" data-rank-type="best" data-rank="${n}" data-expense-id="${expense.expense_id}">🏅B${n}</button>`).join('')
+    : [1,2,3,4,5].map(n => `<button class="rank-btn worst ${n <= Math.min(worstCount+1,5) ? '' : 'disabled-rank'}" data-rank-type="worst" data-rank="${n}" data-expense-id="${expense.expense_id}">😢W${n}</button>`).join('');
 
   card.innerHTML = `
     <div class="expense-card-header">
       <div class="expense-info">
-        <div class="expense-shop">${escHtml(expense.shop_name)} ${ratedBadge} ${rankLabel}</div>
+        <div class="expense-shop">${escHtml(expense.shop_name)}${typeBadge} ${ratedBadge} ${bestLabel} ${worstLabel}</div>
         <div class="expense-meta">${expense.category} · ${expense.date}</div>
       </div>
       <div class="expense-amount">¥${expense.amount.toLocaleString()}</div>
     </div>
     <div class="rank-selector" id="rank-${expense.expense_id}">
-      ${[1,2,3,4,5].map(n => `
-        <button class="rank-btn best ${n <= Math.min(getRankedExpenses('best').length+1,5) ? '' : 'disabled-rank'}" data-rank-type="best" data-rank="${n}" data-expense-id="${expense.expense_id}">🏅B${n}</button>
-        <button class="rank-btn worst ${n <= Math.min(getRankedExpenses('worst').length+1,5) ? '' : 'disabled-rank'}" data-rank-type="worst" data-rank="${n}" data-expense-id="${expense.expense_id}">😢W${n}</button>
-      `).join('')}
+      ${rankBtns}
     </div>
     <div class="rating-btns">
       ${[1,2,3,4,5,6,7,8,9,10].map(n =>
@@ -1310,21 +1367,21 @@ async function saveRating(expenseId, score, memo) {
 }
 
 // ===================================================================
-// 固定費/変動費タブ切り替え
+// ベスト/ワーストタブ切り替え
 // ===================================================================
 function initExpenseTypeTabs() {
-  document.querySelectorAll('.expense-type-tab').forEach(tab => {
+  document.querySelectorAll('.rank-type-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.expense-type-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.rank-type-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      state.currentExpenseType = tab.dataset.type;
+      state.currentRankType = tab.dataset.rank;
       renderAward();
     });
   });
 
   document.getElementById('btn-skip-step2').addEventListener('click', () => {
     state.step2Skipped = true;
-    state.step3Skipped = true; // STEP2スキップ時はSTEP3も自動スキップ
+    state.step3Skipped = true;
     renderAward();
   });
 
@@ -1332,6 +1389,48 @@ function initExpenseTypeTabs() {
     state.step3Skipped = true;
     renderAward();
   });
+
+  // ランキングパネル ドロワートグル（モバイル）
+  document.getElementById('rank-panel-handle').addEventListener('click', () => {
+    document.getElementById('rank-panel').classList.toggle('collapsed');
+  });
+}
+
+// ===================================================================
+// ランキングパネル描画
+// ===================================================================
+function renderRankPanel() {
+  const best = getRankedExpenses('best');
+  const worst = getRankedExpenses('worst');
+
+  // ミニサマリー（ドロワー折りたたみ時）
+  const miniEl = document.getElementById('rank-panel-mini');
+  const b1 = best[0] ? best[0].shop_name : '未選択';
+  const w1 = worst[0] ? worst[0].shop_name : '未選択';
+  miniEl.innerHTML = `
+    <span class="rank-panel-mini-item">🏅<b>B1</b> ${escHtml(b1)}</span>
+    <span class="rank-panel-mini-item">😢<b>W1</b> ${escHtml(w1)}</span>
+  `;
+
+  // パネル本体
+  const body = document.getElementById('rank-panel-body');
+  const rows = (type, icon, list) => [1,2,3,4,5].map(n => {
+    const e = list[n-1];
+    return `<div class="rank-panel-row">
+      <span class="rank-panel-lbl">${icon}${type[0].toUpperCase()}${n}</span>
+      ${e
+        ? `<span class="rank-panel-name">${escHtml(e.shop_name)}</span><span class="rank-panel-amt">¥${e.amount.toLocaleString()}</span>`
+        : `<span class="rank-panel-empty">── 未選択</span>`
+      }
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="rank-section-title" style="color:var(--mint)">🏅 ベスト</div>
+    ${rows('best', '🏅', best)}
+    <div class="rank-section-title" style="color:var(--coral);margin-top:10px">😢 ワースト</div>
+    ${rows('worst', '😢', worst)}
+  `;
 }
 
 // ===================================================================
