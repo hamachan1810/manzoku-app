@@ -1287,7 +1287,7 @@ function renderHomeAlerts(expenses) {
   state.budgets.forEach(b => {
     const actual = expenses.filter(e => e.category === b.category).reduce((s, e) => s + e.amount, 0);
     if (actual > b.monthly_budget) {
-      overBudgets.push({ category: b.category, budget: b.monthly_budget, actual });
+      overBudgets.push({ category: b.category, monthly_budget: b.monthly_budget, actual });
     }
   });
   if (!overBudgets.length) {
@@ -1881,66 +1881,74 @@ function showEvalDialog3C(existingExpense, oldScore, newScore) {
 }
 
 async function executeRankAssignment() {
-  // スコア+メモを保存
-  await saveRating(evalState.expenseId, evalState.score, evalState.memo);
-  // ランク設定（強制設定：解除ではなく必ず割り当て）
-  const type = evalState.selectedRankType;
-  const rank = evalState.selectedRank;
-  const key = 'manzoku_rank_' + type + '_' + getCurrentYearMonth();
-  let ranks = JSON.parse(sessionStorage.getItem(key) || '[]');
-  // 既に入っていれば一旦削除
-  const myIdx = ranks.indexOf(evalState.expenseId);
-  if (myIdx !== -1) ranks.splice(myIdx, 1);
-  // 同ランクの既存を削除してから挿入
-  ranks = ranks.filter((_, i) => i !== rank - 1);
-  ranks.splice(rank - 1, 0, evalState.expenseId);
-  ranks = ranks.slice(0, 5);
-  sessionStorage.setItem(key, JSON.stringify(ranks));
-
-  closeAllEvalDialogs();
-  renderAward();
+  try {
+    // スコア+メモを保存
+    await saveRating(evalState.expenseId, evalState.score, evalState.memo);
+    // ランク設定（強制設定：解除ではなく必ず割り当て）
+    const type = evalState.selectedRankType;
+    const rank = evalState.selectedRank;
+    const key = 'manzoku_rank_' + type + '_' + getCurrentYearMonth();
+    let ranks = JSON.parse(sessionStorage.getItem(key) || '[]');
+    // 既に入っていれば一旦削除
+    const myIdx = ranks.indexOf(evalState.expenseId);
+    if (myIdx !== -1) ranks.splice(myIdx, 1);
+    // 同ランクの既存を削除してから挿入
+    ranks = ranks.filter((_, i) => i !== rank - 1);
+    ranks.splice(rank - 1, 0, evalState.expenseId);
+    ranks = ranks.slice(0, 5);
+    sessionStorage.setItem(key, JSON.stringify(ranks));
+  } catch(e) {
+    console.error('executeRankAssignment error:', e);
+  } finally {
+    closeAllEvalDialogs();
+    renderAward();
+  }
 }
 
 async function executeSwap(swapScores) {
-  const type = evalState.selectedRankType;
-  const rank = evalState.selectedRank;
-  const rankedList = getRankedExpenses(type);
-  const existingExpense = rankedList[rank - 1];
+  try {
+    const type = evalState.selectedRankType;
+    const rank = evalState.selectedRank;
+    const rankedList = getRankedExpenses(type);
+    const existingExpense = rankedList[rank - 1];
 
-  if (swapScores && existingExpense) {
-    // スコア逆転: 新→旧のスコアで保存
-    const oldRating = state.ratings[existingExpense.expense_id];
-    const oldScore = oldRating?.score ?? evalState.score;
-    const oldMemo  = oldRating?.memo ?? evalState.memo;
-    // 新明細を旧スコアで保存
-    await saveRating(evalState.expenseId, oldScore, evalState.memo);
-    // 旧明細を新スコアで保存
-    if (existingExpense) {
-      await saveRating(existingExpense.expense_id, evalState.score, oldMemo);
+    if (swapScores && existingExpense) {
+      // スコア逆転: 新→旧のスコアで保存
+      const oldRating = state.ratings[existingExpense.expense_id];
+      const oldScore = oldRating?.score ?? evalState.score;
+      const oldMemo  = oldRating?.memo ?? evalState.memo;
+      // 新明細を旧スコアで保存
+      await saveRating(evalState.expenseId, oldScore, evalState.memo);
+      // 旧明細を新スコアで保存
+      if (existingExpense) {
+        await saveRating(existingExpense.expense_id, evalState.score, oldMemo);
+      }
+    } else {
+      // 通常スワップ
+      await saveRating(evalState.expenseId, evalState.score, evalState.memo);
     }
-  } else {
-    // 通常スワップ
-    await saveRating(evalState.expenseId, evalState.score, evalState.memo);
-  }
 
-  // ランク入れ替え
-  const key = 'manzoku_rank_' + type + '_' + getCurrentYearMonth();
-  let ranks = JSON.parse(sessionStorage.getItem(key) || '[]');
-  // 旧明細のランクを削除（もし入っていれば）
-  if (existingExpense) {
-    const oldIdx = ranks.indexOf(existingExpense.expense_id);
-    if (oldIdx !== -1) ranks.splice(oldIdx, 1);
+    // ランク入れ替え
+    const key = 'manzoku_rank_' + type + '_' + getCurrentYearMonth();
+    let ranks = JSON.parse(sessionStorage.getItem(key) || '[]');
+    // 旧明細のランクを削除（もし入っていれば）
+    if (existingExpense) {
+      const oldIdx = ranks.indexOf(existingExpense.expense_id);
+      if (oldIdx !== -1) ranks.splice(oldIdx, 1);
+    }
+    // 自分が既に入っていれば削除
+    const myIdx = ranks.indexOf(evalState.expenseId);
+    if (myIdx !== -1) ranks.splice(myIdx, 1);
+    // rank位置に挿入
+    ranks.splice(rank - 1, 0, evalState.expenseId);
+    ranks = ranks.slice(0, 5);
+    sessionStorage.setItem(key, JSON.stringify(ranks));
+  } catch(e) {
+    console.error('executeSwap error:', e);
+  } finally {
+    closeAllEvalDialogs();
+    renderAward();
   }
-  // 自分が既に入っていれば削除
-  const myIdx = ranks.indexOf(evalState.expenseId);
-  if (myIdx !== -1) ranks.splice(myIdx, 1);
-  // rank位置に挿入
-  ranks.splice(rank - 1, 0, evalState.expenseId);
-  ranks = ranks.slice(0, 5);
-  sessionStorage.setItem(key, JSON.stringify(ranks));
-
-  closeAllEvalDialogs();
-  renderAward();
 }
 
 // ===================================================================
