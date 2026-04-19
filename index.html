@@ -1375,42 +1375,40 @@ function renderExpenseList(expenses) {
   const emptyEl = document.getElementById('award-empty-state');
   if (emptyEl) emptyEl.style.display = 'none';
 
-  // ベスト・ワーストのランク済みID（両方）
-  const bestRanked = getRankedExpenses('best');
-  const worstRanked = getRankedExpenses('worst');
-  const allRankedIds = new Set([
-    ...bestRanked.map(e => e.expense_id),
-    ...worstRanked.map(e => e.expense_id),
-  ]);
+  // 現在のタブに応じたランク済みリスト
+  const isBestTab = state.currentRankType === 'best';
+  const currentRanked = getRankedExpenses(state.currentRankType);
+  const currentRankedIds = new Set(currentRanked.map(e => e.expense_id));
+
+  // 反対タブのランク済みID（評価あり・未ランクの除外に使う）
+  const otherRanked = getRankedExpenses(isBestTab ? 'worst' : 'best');
+  const otherRankedIds = new Set(otherRanked.map(e => e.expense_id));
 
   const score = (e) => state.ratings[e.expense_id]?.score ?? null;
 
-  // ランク済み（ベスト＋ワーストの和集合、重複除去・ランク順）
-  const rankedAll = [];
-  const addedIds = new Set();
-  [...bestRanked, ...worstRanked].forEach(e => {
-    if (!addedIds.has(e.expense_id)) { rankedAll.push(e); addedIds.add(e.expense_id); }
-  });
-
-  // 評価あり・未ランク
-  const ratedUnranked = expenses.filter(e => score(e) !== null && !allRankedIds.has(e.expense_id));
+  // 評価あり・未ランク（現タブ未割り当て、評価済み）
+  const ratedUnranked = expenses.filter(e => score(e) !== null && !currentRankedIds.has(e.expense_id));
 
   // 未評価
   const unrated = expenses.filter(e => score(e) === null);
 
   // ══════ ランク済みセクション ══════
   const rankedSection = document.getElementById('ranked-section');
+  const rankedLabel = rankedSection.querySelector('.award-section-label');
+  if (rankedLabel) rankedLabel.textContent = isBestTab ? '🏅 ベストランク済み' : '😢 ワーストランク済み';
   const rankedList = document.getElementById('ranked-list');
   rankedList.innerHTML = '';
-  if (rankedAll.length > 0) {
+  if (currentRanked.length > 0) {
     rankedSection.style.display = '';
-    rankedAll.forEach(e => rankedList.appendChild(createExpenseCard(e, true)));
+    currentRanked.forEach(e => rankedList.appendChild(createExpenseCard(e, true)));
   } else {
     rankedSection.style.display = 'none';
   }
 
   // ══════ 評価あり・未ランクセクション ══════
   const ratedSection = document.getElementById('rated-unranked-section');
+  const ratedLabel = ratedSection.querySelector('.award-section-label');
+  if (ratedLabel) ratedLabel.textContent = isBestTab ? '📋 評価あり・ベスト未選択' : '📋 評価あり・ワースト未選択';
   const ratedList = document.getElementById('rated-unranked-list');
   ratedList.innerHTML = '';
   if (ratedUnranked.length > 0) {
