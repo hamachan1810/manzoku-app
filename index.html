@@ -257,6 +257,23 @@ a{color:inherit;text-decoration:none}
 .dict-select{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px}
 .dict-hint{font-size:11px;color:var(--text-sub)}
 .btn-dict-add{background:var(--navy);color:#fff;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600}
+/* キーワードインラインパネル */
+.keyword-chip{cursor:pointer;transition:all .15s}
+.keyword-chip:hover{opacity:.8;transform:scale(1.05)}
+.keyword-chip.active-chip{box-shadow:0 0 0 2px var(--navy)}
+.kw-inline-panel{overflow:hidden;transition:max-height .3s ease;max-height:0}
+.kw-inline-panel.open{max-height:600px}
+.kw-inline-panel-inner{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin:8px 0 4px}
+.kw-panel-title{font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px}
+.kw-panel-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #eee}
+.kw-panel-item:last-child{border-bottom:none}
+.kw-panel-item-info{flex:1;min-width:0}
+.kw-panel-item-shop{font-weight:700;font-size:13px;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kw-panel-item-meta{font-size:11px;color:var(--text-sub);margin-top:2px}
+.kw-panel-item-memo{font-size:11px;color:var(--text);margin-top:3px;font-style:italic;word-break:break-all}
+.kw-panel-item-right{text-align:right;flex-shrink:0}
+.kw-panel-item-amount{font-size:13px;font-weight:700;color:var(--coral)}
+.kw-panel-item-score{font-size:11px;color:var(--mint);font-weight:700;margin-top:2px}
 .insight-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .insight-item:last-child{border-bottom:none}
 .insight-rank{font-size:18px;font-weight:700;color:var(--text-sub);min-width:28px;text-align:center}
@@ -1948,16 +1965,82 @@ function renderKeywords(allExpenses) {
   const sortedPos = Object.entries(posFreq).sort((a,b) => b[1]-a[1]);
   const sortedNeg = Object.entries(negFreq).sort((a,b) => b[1]-a[1]);
 
+  // キーワード→該当支出マップを構築
+  const kwExpenseMap = {}; // canonical → [expense, ...]
+  ratedExpenses.forEach(e => {
+    const memo = state.ratings[e.expense_id]?.memo || '';
+    const kws = extractKeywords(memo, dict);
+    Object.keys(kws).forEach(word => {
+      if (!kwExpenseMap[word]) kwExpenseMap[word] = [];
+      kwExpenseMap[word].push(e);
+    });
+  });
+
   const chips = (list, cls) => list.length
-    ? list.map(([w,c]) => `<span class="keyword-chip ${cls}">${escHtml(w)}<span class="kw-count">${c}</span></span>`).join('')
+    ? list.map(([w,c]) => `<span class="keyword-chip ${cls}" data-kw="${escHtml(w)}">${escHtml(w)}<span class="kw-count">${c}</span></span>`).join('')
     : '<span class="text-sub" style="font-size:12px">なし</span>';
 
   el.innerHTML = `
     <div class="kw-section-title" style="color:#166534">🏅 ポジティブ</div>
-    <div class="keyword-list" style="margin-bottom:10px">${chips(sortedPos, 'pos')}</div>
+    <div class="keyword-list" style="margin-bottom:4px">${chips(sortedPos, 'pos')}</div>
+    <div class="kw-inline-panel" id="kw-panel-pos"></div>
     <div class="kw-section-title" style="color:#991b1b">😢 ネガティブ</div>
-    <div class="keyword-list">${chips(sortedNeg, 'neg')}</div>
+    <div class="keyword-list" style="margin-bottom:4px">${chips(sortedNeg, 'neg')}</div>
+    <div class="kw-inline-panel" id="kw-panel-neg"></div>
   `;
+
+  // チップクリックでインラインパネル表示
+  let activeKw = null;
+  el.querySelectorAll('.keyword-chip[data-kw]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const kw = chip.dataset.kw;
+      const cls = chip.classList.contains('pos') ? 'pos' : 'neg';
+      const panelId = cls === 'pos' ? 'kw-panel-pos' : 'kw-panel-neg';
+      const panel = document.getElementById(panelId);
+
+      // 同じキーワードで再クリック → 閉じる
+      if (activeKw === kw && panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        chip.classList.remove('active-chip');
+        activeKw = null;
+        return;
+      }
+
+      // 全チップのactive解除・全パネル閉じる
+      el.querySelectorAll('.keyword-chip').forEach(c => c.classList.remove('active-chip'));
+      el.querySelectorAll('.kw-inline-panel').forEach(p => p.classList.remove('open'));
+
+      // パネル内容を生成
+      const matched = kwExpenseMap[kw] || [];
+      const rows = matched.map(e => {
+        const r = state.ratings[e.expense_id];
+        const score = r ? `✅ ${r.score}点` : '未評価';
+        const memo = r?.memo ? `<div class="kw-panel-item-memo">"${escHtml(r.memo)}"</div>` : '';
+        const typeBadge = `<span class="type-badge ${e.expense_type === 'variable' ? 'variable' : 'fixed'}">${e.expense_type === 'variable' ? '変動' : '固定'}</span>`;
+        return `
+          <div class="kw-panel-item">
+            <div class="kw-panel-item-info">
+              <div class="kw-panel-item-shop">${typeBadge} ${escHtml(e.shop_name)}</div>
+              <div class="kw-panel-item-meta">${escHtml(e.category)} · ${e.date}</div>
+              ${memo}
+            </div>
+            <div class="kw-panel-item-right">
+              <div class="kw-panel-item-amount">¥${e.amount.toLocaleString()}</div>
+              <div class="kw-panel-item-score">${score}</div>
+            </div>
+          </div>`;
+      }).join('');
+
+      panel.innerHTML = `<div class="kw-inline-panel-inner">
+        <div class="kw-panel-title">🏷️「${escHtml(kw)}」を含む支出 (${matched.length}件)</div>
+        ${rows}
+      </div>`;
+
+      chip.classList.add('active-chip');
+      panel.classList.add('open');
+      activeKw = kw;
+    });
+  });
 }
 
 // ===================================================================
