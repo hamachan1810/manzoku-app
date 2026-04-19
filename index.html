@@ -479,11 +479,11 @@ a{color:inherit;text-decoration:none}
           <div class="progress-bar"><div class="progress-fill" id="step1-bar" style="width:0%;background:var(--text-sub)"></div></div>
         </div>
         <div class="progress-wrap">
-          <div class="progress-label"><span>STEP2（必須）ベスト1・ワースト1</span><span id="step2-pct">0%</span></div>
+          <div class="progress-label"><span>STEP2（必須）ベスト1〜3・ワースト1〜3</span><span id="step2-pct">0%</span></div>
           <div class="progress-bar"><div class="progress-fill" id="step2-bar" style="width:0%"></div></div>
         </div>
         <div class="progress-wrap">
-          <div class="progress-label"><span>STEP3（推奨）ベスト〜5・ワースト〜5</span><span id="step3-pct">0%</span></div>
+          <div class="progress-label"><span>STEP3（推奨）ベスト4〜5・ワースト4〜5</span><span id="step3-pct">0%</span></div>
           <div class="progress-bar"><div class="progress-fill mint" id="step3-bar" style="width:0%"></div></div>
         </div>
       </div>
@@ -1238,14 +1238,16 @@ function renderHome() {
   // 進捗計算（新フロー）
   // STEP1: 満足度評価 %
   const step1Done = thisMonthExpenses.length > 0 ? Math.round((rated / thisMonthExpenses.length) * 100) : 0;
-  // STEP2: ベスト1+ワースト1（0〜2/2）
-  const hasStep2Best = getRankedExpenses('best').length > 0;
-  const hasStep2Worst = getRankedExpenses('worst').length > 0;
-  const step2Done = hasStep2Best && hasStep2Worst ? 100 : (hasStep2Best || hasStep2Worst ? 50 : 0);
-  // STEP3: ベスト2〜5+ワースト2〜5（0〜8/8）
-  const bestCount = Math.max(0, Math.min(getRankedExpenses('best').length, 5) - 1);
-  const worstCount = Math.max(0, Math.min(getRankedExpenses('worst').length, 5) - 1);
-  const step3Done = Math.round(((bestCount + worstCount) / 8) * 100);
+  // STEP2: ベスト1〜3・ワースト1〜3（必須：6スロット）
+  const bestRankedAll  = getRankedExpenses('best');
+  const worstRankedAll = getRankedExpenses('worst');
+  const step2Best  = Math.min(bestRankedAll.length, 3);
+  const step2Worst = Math.min(worstRankedAll.length, 3);
+  const step2Done  = Math.round(((step2Best + step2Worst) / 6) * 100);
+  // STEP3: ベスト4〜5・ワースト4〜5（推奨：4スロット）
+  const step3Best  = Math.max(0, Math.min(bestRankedAll.length, 5) - 3);
+  const step3Worst = Math.max(0, Math.min(worstRankedAll.length, 5) - 3);
+  const step3Done  = Math.round(((step3Best + step3Worst) / 4) * 100);
 
   document.getElementById('step1-bar').style.width = step1Done + '%';
   document.getElementById('step1-pct').textContent = step1Done + '%';
@@ -1645,7 +1647,7 @@ function initEvalDialogs() {
   // ダイアログ②のボタン
   document.getElementById('eval-d2-back').addEventListener('click', () => {
     document.getElementById('eval-dialog-2').classList.add('hidden');
-    openEvalDialog1(evalState.expenseId);
+    openEvalDialog1(evalState.expenseId, true); // keepState=true: スコア・メモを維持
   });
   document.getElementById('eval-d2-cancel').addEventListener('click', closeAllEvalDialogs);
 
@@ -1680,17 +1682,18 @@ function initEvalDialogs() {
   });
 }
 
-function openEvalDialog1(expenseId) {
-  const rating = state.ratings[expenseId];
-
-  // pre-fill: 既存評価があればプリセット、なければリセット
-  evalState.expenseId = expenseId;
-  if (rating) {
-    evalState.score = rating.score;
-    evalState.memo  = rating.memo || '';
-  } else {
-    evalState.score = null;
-    evalState.memo  = '';
+function openEvalDialog1(expenseId, keepState = false) {
+  // keepState=true のとき（修正するで戻った場合）は evalState をそのまま維持
+  if (!keepState) {
+    const rating = state.ratings[expenseId];
+    evalState.expenseId = expenseId;
+    if (rating) {
+      evalState.score = rating.score;
+      evalState.memo  = rating.memo || '';
+    } else {
+      evalState.score = null;
+      evalState.memo  = '';
+    }
   }
 
   document.getElementById('eval-d1-mini').innerHTML = evalExpenseMiniHtml(expenseId);
