@@ -1260,16 +1260,16 @@ function renderExpenseList(expenses) {
   const unranked = rated.filter(e => !rankedIds.has(e.expense_id));
 
   // ──── STEP2 フィルター（ベスト1候補 / ワースト1候補） ────
-  // ベスト: 満足度6以上、ワースト: 5以下
-  const step2QualFn = isBest ? (e) => score(e) >= 6 : (e) => score(e) <= 5;
+  // ベスト: 満足度9以上、ワースト: 2以下
+  const step2QualFn = isBest ? (e) => score(e) >= 9 : (e) => score(e) <= 2;
   const unrankedExclRank1 = unranked.filter(e => e.expense_id !== rank1?.expense_id);
   const step2Qualified = unrankedExclRank1.filter(step2QualFn);
   const step2Relaxed   = step2Qualified.length === 0 && unrankedExclRank1.length > 0;
   const step2Candidates = step2Relaxed ? unrankedExclRank1 : step2Qualified;
 
   // ──── STEP3 フィルター（ベスト2〜5候補 / ワースト2〜5候補） ────
-  // ベスト: 満足度4以上、ワースト: 7以下
-  const step3QualFn = isBest ? (e) => score(e) >= 4 : (e) => score(e) <= 7;
+  // ベスト: 満足度8以上、ワースト: 3以下
+  const step3QualFn = isBest ? (e) => score(e) >= 8 : (e) => score(e) <= 3;
   const unrankedExclAll = unrankedExclRank1.filter(e => !rankedIds.has(e.expense_id));
   const step3Qualified = unrankedExclAll.filter(step3QualFn);
   const step3Relaxed   = step3Qualified.length === 0 && unrankedExclAll.length > 0;
@@ -1295,7 +1295,7 @@ function renderExpenseList(expenses) {
   if (rated.length === 0) {
     step2List.innerHTML = `<div class="text-sub" style="font-size:13px;padding:8px 0">👇 下の「未評価」欄で満足度をつけてください</div>`;
   } else {
-    const filterLabel = isBest ? '満足度6以上' : '満足度5以下';
+    const filterLabel = isBest ? '満足度9以上' : '満足度2以下';
     step2Badge.innerHTML = step2Relaxed
       ? `<span class="filter-badge relaxed">⚠️ 対象なし → 全評価済みから選択中</span>`
       : `<span class="filter-badge">📌 対象: ${filterLabel}（${step2Qualified.length}件）</span>`;
@@ -1318,7 +1318,7 @@ function renderExpenseList(expenses) {
     const step3Badge = document.getElementById('step3-filter-badge');
     step3List.innerHTML = '';
 
-    const filterLabel3 = isBest ? '満足度4以上' : '満足度7以下';
+    const filterLabel3 = isBest ? '満足度8以上' : '満足度3以下';
     step3Badge.innerHTML = step3Relaxed
       ? `<span class="filter-badge relaxed">⚠️ 対象なし → 全評価済みから選択中</span>`
       : `<span class="filter-badge">📌 対象: ${filterLabel3}（${step3Qualified.length}件）</span>`;
