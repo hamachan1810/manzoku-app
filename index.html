@@ -1214,7 +1214,7 @@ function createExpenseCard(expense, step, isCurrentMonth) {
   card.innerHTML = `
     <div class="expense-card-header">
       <div class="expense-info">
-        <div class="expense-shop">${escHtml(expense.shop_name)}${typeBadge} ${ratedBadge} ${bestLabel} ${worstLabel}</div>
+        <div class="expense-shop">${typeBadge}${escHtml(expense.shop_name)} ${ratedBadge} ${bestLabel} ${worstLabel}</div>
         <div class="expense-meta">${expense.category} · ${expense.date}</div>
       </div>
       <div class="expense-amount">¥${expense.amount.toLocaleString()}</div>
