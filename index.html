@@ -227,6 +227,36 @@ a{color:inherit;text-decoration:none}
 .keyword-list{display:flex;flex-wrap:wrap;gap:6px}
 .keyword-chip{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--text)}
 .keyword-chip .kw-count{font-weight:700;color:var(--coral);margin-left:4px}
+/* キーワード分析 */
+.kw-filter-tabs{display:flex;gap:6px;margin-bottom:12px}
+.kw-filter-btn{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:var(--surface);border:1px solid var(--border);color:var(--text-sub)}
+.kw-filter-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.kw-section-title{font-size:11px;font-weight:700;color:var(--text-sub);margin:10px 0 6px;text-transform:uppercase;letter-spacing:.05em}
+.keyword-chip.pos{background:#F0FDF4;border-color:var(--mint);color:#166534}
+.keyword-chip.neg{background:#FFF5F5;border-color:var(--coral);color:#991b1b}
+.keyword-chip .kw-count{font-weight:700;margin-left:4px}
+.keyword-chip.pos .kw-count{color:var(--mint)}
+.keyword-chip.neg .kw-count{color:var(--coral)}
+/* 辞書管理モーダル */
+.dict-modal{max-width:520px;max-height:80vh;display:flex;flex-direction:column}
+.dict-modal h3{margin-bottom:4px}
+.dict-scroll{overflow-y:auto;flex:1;margin:12px 0;border:1px solid var(--border);border-radius:8px}
+.dict-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--surface);font-size:13px}
+.dict-row:last-child{border-bottom:none}
+.dict-canonical{font-weight:700;min-width:80px}
+.dict-type-badge{font-size:10px;font-weight:700;border-radius:4px;padding:1px 5px;flex-shrink:0}
+.dict-type-badge.pos{background:#F0FDF4;color:#166534;border:1px solid var(--mint)}
+.dict-type-badge.neg{background:#FFF5F5;color:#991b1b;border:1px solid var(--coral)}
+.dict-patterns{flex:1;font-size:11px;color:var(--text-sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dict-del-btn{font-size:11px;color:var(--text-sub);background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;flex-shrink:0}
+.dict-del-btn:hover{background:var(--coral);color:#fff;border-color:var(--coral)}
+.dict-add-form{display:flex;flex-direction:column;gap:8px;padding:12px 0 4px}
+.dict-add-row{display:flex;gap:6px;align-items:center}
+.dict-add-row label{font-size:12px;color:var(--text-sub);white-space:nowrap;min-width:80px}
+.dict-input{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;flex:1}
+.dict-select{border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px}
+.dict-hint{font-size:11px;color:var(--text-sub)}
+.btn-dict-add{background:var(--navy);color:#fff;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600}
 .insight-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
 .insight-item:last-child{border-bottom:none}
 .insight-rank{font-size:18px;font-weight:700;color:var(--text-sub);min-width:28px;text-align:center}
@@ -554,8 +584,16 @@ a{color:inherit;text-decoration:none}
 
       <!-- キーワード頻度 -->
       <div class="card">
-        <div class="card-title"><span class="icon">🏷️</span>メモキーワード頻度</div>
-        <div class="keyword-list" id="keyword-list"><div class="text-sub" style="font-size:13px">メモデータなし</div></div>
+        <div class="card-title">
+          <span><span class="icon">🏷️</span>メモキーワード分析</span>
+          <button class="btn-skip" id="btn-open-dict" style="margin-left:auto;font-size:11px">📖 辞書編集</button>
+        </div>
+        <div class="kw-filter-tabs">
+          <button class="kw-filter-btn active" data-kw-filter="all">全体</button>
+          <button class="kw-filter-btn" data-kw-filter="best">🏅 ベスト</button>
+          <button class="kw-filter-btn" data-kw-filter="worst">😢 ワースト</button>
+        </div>
+        <div id="keyword-list"><div class="text-sub" style="font-size:13px">メモデータなし</div></div>
       </div>
 
       <!-- ワーストカテゴリ常連警告 -->
@@ -637,6 +675,37 @@ a{color:inherit;text-decoration:none}
     <div class="modal-btns">
       <button class="btn-modal-cancel" id="btn-edit-cancel">キャンセル</button>
       <button class="btn-modal-ok" id="btn-edit-confirm">次へ</button>
+    </div>
+  </div>
+</div>
+
+<!-- 辞書編集モーダル -->
+<div class="modal-backdrop hidden" id="dict-modal">
+  <div class="modal dict-modal">
+    <h3>📖 キーワード辞書編集</h3>
+    <p style="font-size:12px;color:var(--text-sub)">正規表現パターンにマッチしたメモ文言を正規ワードに分類します</p>
+    <div class="dict-scroll" id="dict-table"></div>
+    <div class="dict-add-form">
+      <div class="dict-add-row">
+        <label>正規ワード</label>
+        <input class="dict-input" id="dict-new-canonical" placeholder="例: 疲れた">
+        <select class="dict-select" id="dict-new-type">
+          <option value="neg">😢 ネガティブ</option>
+          <option value="pos">🏅 ポジティブ</option>
+        </select>
+      </div>
+      <div class="dict-add-row">
+        <label>マッチパターン</label>
+        <input class="dict-input" id="dict-new-patterns" placeholder="例: 疲れ,つかれ,くたびれ">
+      </div>
+      <div class="dict-hint">※カンマ区切りで複数入力。部分一致で検索します。</div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn-dict-add" id="btn-dict-add">追加</button>
+        <button class="btn-modal-cancel" id="btn-dict-reset">デフォルトに戻す</button>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-ok" id="btn-dict-close">閉じる</button>
     </div>
   </div>
 </div>
@@ -757,6 +826,8 @@ async function initApp() {
   initBudgetForm();
   initGasSettings();
   initEditModal();
+  initDictModal();
+  initKwFilterTabs();
   checkMonthEndAlert();
 
   // GAS URLが設定済みならデータ取得
@@ -1646,7 +1717,8 @@ function renderAnalysis() {
   renderCategoryChart(rated);
   renderMonthlyChart(filtered);
   renderCospaAnalysis(filtered);
-  renderKeywords(rated);
+  state._analysisFiltered = filtered; // キーワードフィルタータブ用に保持
+  renderKeywords(filtered);
   renderWorstCategoryWarning();
   renderArchive();
 }
@@ -1783,21 +1855,176 @@ function renderInsightList(elId, expenses, metaFn) {
   `).join('');
 }
 
-function renderKeywords(expenses) {
-  const memos = expenses.map(e => state.ratings[e.expense_id]?.memo || '').join(' ');
-  const words = memos.split(/[\s、。！？!?　,.]/g).filter(w => w.length >= 2);
-  const freq = {};
-  words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
-  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 20);
+// ===================================================================
+// キーワード辞書
+// ===================================================================
+const KW_STORAGE_KEY = 'manzoku_kw_dict';
 
+const DEFAULT_DICT = [
+  // ポジティブ
+  { canonical:'楽しい',   type:'pos', patterns:['楽し','たのし','fun'] },
+  { canonical:'美味しい', type:'pos', patterns:['美味し','おいし','うまい','うま','旨い'] },
+  { canonical:'充実',     type:'pos', patterns:['充実','じゅうじつ'] },
+  { canonical:'満足',     type:'pos', patterns:['満足','まんぞく'] },
+  { canonical:'嬉しい',   type:'pos', patterns:['嬉し','うれし'] },
+  { canonical:'良かった', type:'pos', patterns:['良かっ','よかっ','よかっ','良い','よい','いい'] },
+  { canonical:'お得',     type:'pos', patterns:['お得','おとく','得し','お安'] },
+  { canonical:'最高',     type:'pos', patterns:['最高','さいこう'] },
+  { canonical:'スッキリ', type:'pos', patterns:['すっきり','スッキリ','スきり'] },
+  { canonical:'リフレッシュ', type:'pos', patterns:['リフレッシュ','リフレ','気分転換'] },
+  { canonical:'成長',     type:'pos', patterns:['成長','せいちょう','スキル','学べ','学ん'] },
+  { canonical:'ちょうど良い', type:'pos', patterns:['ちょうど','程よ','丁度'] },
+  { canonical:'コスパ良い', type:'pos', patterns:['コスパ良','コスパが良','コスパよ','コスパ◎','コスパ○'] },
+  { canonical:'癒された', type:'pos', patterns:['癒し','癒さ','いやし','いやさ'] },
+  { canonical:'感動',     type:'pos', patterns:['感動','かんどう'] },
+  // ネガティブ
+  { canonical:'疲れた',   type:'neg', patterns:['疲れ','つかれ','くたびれ','ぐったり'] },
+  { canonical:'楽しくない', type:'neg', patterns:['楽しくな','たのしくな','楽しめな','たのしめな'] },
+  { canonical:'高い',     type:'neg', patterns:['高い','たかい','高すぎ','お高','割高','割り高'] },
+  { canonical:'もったいない', type:'neg', patterns:['もったいな','勿体'] },
+  { canonical:'後悔',     type:'neg', patterns:['後悔','こうかい','失敗','しっぱい'] },
+  { canonical:'微妙',     type:'neg', patterns:['微妙','びみょう','いまいち','イマイチ'] },
+  { canonical:'マシ',     type:'neg', patterns:['まし','マシ','悪くはな'] },
+  { canonical:'期待外れ', type:'neg', patterns:['期待外れ','がっかり','ガッカリ','ぼちぼち'] },
+  { canonical:'コスパ悪い', type:'neg', patterns:['コスパ悪','コスパが悪','コスパわる','コスパ×','コスパ△'] },
+  { canonical:'飽きた',   type:'neg', patterns:['飽き','あきた','あきて'] },
+  { canonical:'不満',     type:'neg', patterns:['不満','ふまん','不足','不十分'] },
+  { canonical:'勿体ない', type:'neg', patterns:['もったいな','勿体'] },
+  { canonical:'借金',     type:'neg', patterns:['借金','しゃっきん','ローン','分割'] },
+  { canonical:'無駄',     type:'neg', patterns:['無駄','むだ','不要','いらな'] },
+  { canonical:'罪悪感',   type:'neg', patterns:['罪悪感','ざいあく','罪悪','反省','はんせい'] },
+];
+
+function loadDict() {
+  try {
+    const saved = localStorage.getItem(KW_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(DEFAULT_DICT));
+  } catch { return JSON.parse(JSON.stringify(DEFAULT_DICT)); }
+}
+
+function saveDict(dict) {
+  localStorage.setItem(KW_STORAGE_KEY, JSON.stringify(dict));
+}
+
+function extractKeywords(memo, dict) {
+  const result = {};
+  dict.forEach(entry => {
+    const hit = entry.patterns.some(p => memo.includes(p));
+    if (hit) result[entry.canonical] = entry.type;
+  });
+  return result;
+}
+
+function renderKeywords(allExpenses) {
   const el = document.getElementById('keyword-list');
-  if (!sorted.length) {
+  const filter = document.querySelector('.kw-filter-btn.active')?.dataset.kwFilter || 'all';
+  const dict = loadDict();
+
+  // ベスト/ワーストのexpense_idセット
+  const bestIds = new Set(getRankedExpenses('best').map(e => e.expense_id));
+  const worstIds = new Set(getRankedExpenses('worst').map(e => e.expense_id));
+
+  let expenses = allExpenses;
+  if (filter === 'best')  expenses = allExpenses.filter(e => bestIds.has(e.expense_id));
+  if (filter === 'worst') expenses = allExpenses.filter(e => worstIds.has(e.expense_id));
+
+  const ratedExpenses = expenses.filter(e => state.ratings[e.expense_id]?.memo);
+  if (!ratedExpenses.length) {
     el.innerHTML = '<div class="text-sub" style="font-size:13px">メモデータなし</div>';
     return;
   }
-  el.innerHTML = sorted.map(([w, c]) =>
-    `<span class="keyword-chip">${escHtml(w)}<span class="kw-count">${c}</span></span>`
-  ).join('');
+
+  // 頻度集計
+  const posFreq = {}, negFreq = {};
+  ratedExpenses.forEach(e => {
+    const memo = state.ratings[e.expense_id]?.memo || '';
+    const kws = extractKeywords(memo, dict);
+    Object.entries(kws).forEach(([word, type]) => {
+      if (type === 'pos') posFreq[word] = (posFreq[word] || 0) + 1;
+      else                negFreq[word] = (negFreq[word] || 0) + 1;
+    });
+  });
+
+  const sortedPos = Object.entries(posFreq).sort((a,b) => b[1]-a[1]);
+  const sortedNeg = Object.entries(negFreq).sort((a,b) => b[1]-a[1]);
+
+  const chips = (list, cls) => list.length
+    ? list.map(([w,c]) => `<span class="keyword-chip ${cls}">${escHtml(w)}<span class="kw-count">${c}</span></span>`).join('')
+    : '<span class="text-sub" style="font-size:12px">なし</span>';
+
+  el.innerHTML = `
+    <div class="kw-section-title" style="color:#166534">🏅 ポジティブ</div>
+    <div class="keyword-list" style="margin-bottom:10px">${chips(sortedPos, 'pos')}</div>
+    <div class="kw-section-title" style="color:#991b1b">😢 ネガティブ</div>
+    <div class="keyword-list">${chips(sortedNeg, 'neg')}</div>
+  `;
+}
+
+// ===================================================================
+// 辞書管理UI
+// ===================================================================
+function initKwFilterTabs() {
+  document.querySelectorAll('.kw-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.kw-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderKeywords(state._analysisFiltered || state.expenses);
+    });
+  });
+}
+
+function initDictModal() {
+  document.getElementById('btn-open-dict').addEventListener('click', () => {
+    renderDictTable();
+    document.getElementById('dict-modal').classList.remove('hidden');
+  });
+  document.getElementById('btn-dict-close').addEventListener('click', () => {
+    document.getElementById('dict-modal').classList.add('hidden');
+    renderAnalysis();
+  });
+  document.getElementById('btn-dict-add').addEventListener('click', () => {
+    const canonical = document.getElementById('dict-new-canonical').value.trim();
+    const type = document.getElementById('dict-new-type').value;
+    const patternsRaw = document.getElementById('dict-new-patterns').value.trim();
+    if (!canonical || !patternsRaw) return;
+    const patterns = patternsRaw.split(',').map(p => p.trim()).filter(Boolean);
+    const dict = loadDict();
+    dict.push({ canonical, type, patterns });
+    saveDict(dict);
+    document.getElementById('dict-new-canonical').value = '';
+    document.getElementById('dict-new-patterns').value = '';
+    renderDictTable();
+  });
+  document.getElementById('btn-dict-reset').addEventListener('click', () => {
+    if (!confirm('辞書をデフォルトに戻しますか？追加したワードは削除されます。')) return;
+    localStorage.removeItem(KW_STORAGE_KEY);
+    renderDictTable();
+  });
+}
+
+function renderDictTable() {
+  const dict = loadDict();
+  const el = document.getElementById('dict-table');
+  el.innerHTML = dict.map((entry, i) => `
+    <div class="dict-row">
+      <span class="dict-canonical">${escHtml(entry.canonical)}</span>
+      <span class="dict-type-badge ${entry.type}">${entry.type === 'pos' ? 'ポジ' : 'ネガ'}</span>
+      <span class="dict-patterns" title="${escHtml(entry.patterns.join(', '))}">
+        ${escHtml(entry.patterns.join(' / '))}
+      </span>
+      <button class="dict-del-btn" data-dict-idx="${i}">削除</button>
+    </div>
+  `).join('') || '<div style="padding:16px;color:var(--text-sub);font-size:13px">辞書が空です</div>';
+
+  el.querySelectorAll('.dict-del-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.dictIdx);
+      const dict = loadDict();
+      dict.splice(idx, 1);
+      saveDict(dict);
+      renderDictTable();
+    });
+  });
 }
 
 function renderWorstCategoryWarning() {
