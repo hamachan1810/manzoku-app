@@ -475,15 +475,11 @@ a{color:inherit;text-decoration:none}
       <div class="card">
         <div class="card-title"><span class="icon">📋</span>今月の評価進捗</div>
         <div class="progress-wrap">
-          <div class="progress-label"><span>STEP1（任意）満足度評価</span><span id="step1-pct">0%</span></div>
-          <div class="progress-bar"><div class="progress-fill" id="step1-bar" style="width:0%;background:var(--text-sub)"></div></div>
-        </div>
-        <div class="progress-wrap">
-          <div class="progress-label"><span>STEP2（必須）ベスト1〜3・ワースト1〜3</span><span id="step2-pct">0%</span></div>
+          <div class="progress-label"><span>STEP1（必須）ベスト1〜3・ワースト1〜3</span><span id="step2-pct">0%</span></div>
           <div class="progress-bar"><div class="progress-fill" id="step2-bar" style="width:0%"></div></div>
         </div>
         <div class="progress-wrap">
-          <div class="progress-label"><span>STEP3（推奨）ベスト4〜5・ワースト4〜5</span><span id="step3-pct">0%</span></div>
+          <div class="progress-label"><span>STEP2（推奨）ベスト4〜5・ワースト4〜5</span><span id="step3-pct">0%</span></div>
           <div class="progress-bar"><div class="progress-fill mint" id="step3-bar" style="width:0%"></div></div>
         </div>
       </div>
@@ -1236,21 +1232,17 @@ function renderHome() {
   document.getElementById('home-avg-score').textContent = avgScore;
 
   // 進捗計算（新フロー）
-  // STEP1: 満足度評価 %
-  const step1Done = thisMonthExpenses.length > 0 ? Math.round((rated / thisMonthExpenses.length) * 100) : 0;
-  // STEP2: ベスト1〜3・ワースト1〜3（必須：6スロット）
+  // STEP1（必須）: ベスト1〜3・ワースト1〜3（6スロット）
   const bestRankedAll  = getRankedExpenses('best');
   const worstRankedAll = getRankedExpenses('worst');
   const step2Best  = Math.min(bestRankedAll.length, 3);
   const step2Worst = Math.min(worstRankedAll.length, 3);
   const step2Done  = Math.round(((step2Best + step2Worst) / 6) * 100);
-  // STEP3: ベスト4〜5・ワースト4〜5（推奨：4スロット）
+  // STEP2（推奨）: ベスト4〜5・ワースト4〜5（4スロット）
   const step3Best  = Math.max(0, Math.min(bestRankedAll.length, 5) - 3);
   const step3Worst = Math.max(0, Math.min(worstRankedAll.length, 5) - 3);
   const step3Done  = Math.round(((step3Best + step3Worst) / 4) * 100);
 
-  document.getElementById('step1-bar').style.width = step1Done + '%';
-  document.getElementById('step1-pct').textContent = step1Done + '%';
   document.getElementById('step2-bar').style.width = step2Done + '%';
   document.getElementById('step2-pct').textContent = step2Done + '%';
   document.getElementById('step3-bar').style.width = step3Done + '%';
